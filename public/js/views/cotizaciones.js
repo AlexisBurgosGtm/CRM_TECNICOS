@@ -1,6 +1,7 @@
 import * as api from '../api.js';
 import { renderAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
+import { formatDate, formatImporte } from '../format.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -23,11 +24,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function formatImporte(value) {
-  const n = value == null || Number.isNaN(Number(value)) ? 0 : Number(value);
-  return `Q ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function statusBadge(status) {
   if (status === 'TERMINADA') {
     return '<span class="badge badge-estatus-realizado">Terminada</span>';
@@ -35,44 +31,89 @@ function statusBadge(status) {
   return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
 }
 
-function statusLabel(status) {
-  return status === 'TERMINADA' ? 'Terminada' : 'Pendiente';
-}
-
 function printCotizacion(cot) {
+  const logoUrl = `${window.location.origin}/favicon.png`;
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>Cotización #${cot.id}</title>
   <style>
-    body { font-family: Arial, sans-serif; color: #000; margin: 24px; }
-    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-    .meta { color: #444; margin-bottom: 1.5rem; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
-    th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
-    th { background: #f5f5f5; width: 28%; }
-    .detalles { white-space: pre-wrap; line-height: 1.5; }
-    .total { font-size: 1.2rem; font-weight: bold; margin-top: 1rem; }
-    @media print { body { margin: 12mm; } }
+    @page { size: 80mm auto; margin: 4mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      color: #000;
+      margin: 0 auto;
+      padding: 8px 6px 12px;
+      width: 72mm;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .logo {
+      display: block;
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      margin: 0 auto 8px;
+    }
+    h1 {
+      font-size: 16px;
+      text-align: center;
+      margin: 0 0 4px;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 11px;
+      margin: 0 0 12px;
+    }
+    .field { margin-bottom: 8px; }
+    .label { font-weight: bold; display: block; }
+    .value { display: block; margin-top: 2px; }
+    .detalles-label { font-weight: bold; margin: 10px 0 4px; }
+    .detalles {
+      white-space: pre-wrap;
+      border-top: 1px dashed #999;
+      border-bottom: 1px dashed #999;
+      padding: 8px 0;
+      min-height: 40px;
+    }
+    .cliente, .telefono { margin-bottom: 6px; }
+    .total {
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid #000;
+    }
+    @media print {
+      body { width: 72mm; }
+    }
   </style>
 </head>
 <body>
-  <h1>Cotización #${cot.id}</h1>
-  <p class="meta">Fecha de emisión: ${escapeHtml(cot.fecha)}</p>
-  <table>
-    <tr><th>Cliente</th><td>${escapeHtml(cot.cliente)}</td></tr>
-    <tr><th>Teléfono</th><td>${escapeHtml(cot.telefono)}</td></tr>
-    <tr><th>Vence</th><td>${escapeHtml(cot.vence)}</td></tr>
-    <tr><th>Status</th><td>${escapeHtml(statusLabel(cot.status))}</td></tr>
-    <tr><th>Detalles</th><td class="detalles">${escapeHtml(cot.detalles || '—')}</td></tr>
-  </table>
+  <img class="logo" src="${logoUrl}" alt="TECNOSYSTEM">
+  <h1>TECNOSYSTEM</h1>
+  <p class="subtitle">Cotización de servicio o productos</p>
+  <div class="field">
+    <span class="label">Fecha</span>
+    <span class="value">${escapeHtml(formatDate(cot.fecha))}</span>
+  </div>
+  <div class="field">
+    <span class="label">Valida hasta el ${escapeHtml(formatDate(cot.vence))}</span>
+  </div>
+  <div class="cliente"><strong>Cliente:</strong> ${escapeHtml(cot.cliente)}</div>
+  <div class="telefono"><strong>Teléfono:</strong> ${escapeHtml(cot.telefono)}</div>
+  <div class="detalles-label">Se cotizo lo siguiente:</div>
+  <div class="detalles">${escapeHtml(cot.detalles || '—')}</div>
   <p class="total">Total: ${formatImporte(cot.totalprecio)}</p>
   <script>window.onload = () => { window.print(); };</script>
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=800,height=700');
+  const win = window.open('', '_blank', 'width=360,height=720');
   if (!win) {
     toastError('Permita ventanas emergentes para imprimir.');
     return;
@@ -270,10 +311,10 @@ export async function renderCotizaciones(root) {
         (c) => `
         <tr>
           <td>${c.id}</td>
-          <td class="text-nowrap">${escapeHtml(c.fecha)}</td>
+          <td class="text-nowrap">${escapeHtml(formatDate(c.fecha))}</td>
           <td>${escapeHtml(c.cliente)}</td>
           <td>${escapeHtml(c.telefono)}</td>
-          <td class="text-nowrap">${escapeHtml(c.vence)}</td>
+          <td class="text-nowrap">${escapeHtml(formatDate(c.vence))}</td>
           <td class="text-nowrap">${formatImporte(c.totalprecio)}</td>
           <td>${statusBadge(c.status)}</td>
           <td class="text-end text-nowrap">

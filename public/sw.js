@@ -22,6 +22,8 @@ const PRECACHE_URLS = [
   '/index.html',
   '/css/app.css',
   '/manifest.json',
+  '/favicon.png',
+  '/js/format.js',
   '/js/main.js',
   '/js/auth.js',
   '/js/api.js',
@@ -71,6 +73,7 @@ function isStaticAsset(url) {
     url.pathname.startsWith('/css/') ||
     url.pathname.startsWith('/js/') ||
     url.pathname.startsWith('/icons/') ||
+    url.pathname === '/favicon.png' ||
     url.pathname.endsWith('.html') ||
     url.pathname === '/manifest.json'
   );

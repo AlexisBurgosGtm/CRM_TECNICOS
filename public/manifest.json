@@ -1,24 +1,25 @@
 {
-  "name": "Calendario eventos",
-  "short_name": "Calendario",
-  "description": "Gestión de eventos, empleados y clientes",
+  "name": "TECNOSYSTEM",
+  "short_name": "TECNOSYSTEM",
+  "description": "Gestión de eventos, empleados, clientes y cotizaciones",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#5b21b6",
   "orientation": "any",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
+      "src": "/favicon.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/favicon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }

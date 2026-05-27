@@ -1,6 +1,7 @@
 import * as api from '../api.js';
 import { renderAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError, promptTotalPrecio } from '../alerts.js';
+import { formatDateTime, formatImporte } from '../format.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -22,22 +23,6 @@ function rangeToIso(fromDate, toDate) {
     start: `${fromDate}T00:00:00`,
     end: `${toDate}T23:59:59`,
   };
-}
-
-function formatDateTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString('es-GT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatImporte(value) {
-  const n = value == null || Number.isNaN(Number(value)) ? 0 : Number(value);
-  return `Q ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function sumImporte(eventos) {
