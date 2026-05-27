@@ -37,7 +37,7 @@ function formatDateTime(iso) {
 
 function formatImporte(value) {
   const n = value == null || Number.isNaN(Number(value)) ? 0 : Number(value);
-  return `Q ${n.toFixed(2)}`;
+  return `Q ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function sumImporte(eventos) {

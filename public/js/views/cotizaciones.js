@@ -25,7 +25,7 @@ function escapeHtml(text) {
 
 function formatImporte(value) {
   const n = value == null || Number.isNaN(Number(value)) ? 0 : Number(value);
-  return `Q ${n.toFixed(2)}`;
+  return `Q ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function statusBadge(status) {
@@ -35,131 +35,173 @@ function statusBadge(status) {
   return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
 }
 
+function statusLabel(status) {
+  return status === 'TERMINADA' ? 'Terminada' : 'Pendiente';
+}
+
+function printCotizacion(cot) {
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cotización #${cot.id}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #000; margin: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    .meta { color: #444; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f5f5; width: 28%; }
+    .detalles { white-space: pre-wrap; line-height: 1.5; }
+    .total { font-size: 1.2rem; font-weight: bold; margin-top: 1rem; }
+    @media print { body { margin: 12mm; } }
+  </style>
+</head>
+<body>
+  <h1>Cotización #${cot.id}</h1>
+  <p class="meta">Fecha de emisión: ${escapeHtml(cot.fecha)}</p>
+  <table>
+    <tr><th>Cliente</th><td>${escapeHtml(cot.cliente)}</td></tr>
+    <tr><th>Teléfono</th><td>${escapeHtml(cot.telefono)}</td></tr>
+    <tr><th>Vence</th><td>${escapeHtml(cot.vence)}</td></tr>
+    <tr><th>Status</th><td>${escapeHtml(statusLabel(cot.status))}</td></tr>
+    <tr><th>Detalles</th><td class="detalles">${escapeHtml(cot.detalles || '—')}</td></tr>
+  </table>
+  <p class="total">Total: ${formatImporte(cot.totalprecio)}</p>
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=800,height=700');
+  if (!win) {
+    toastError('Permita ventanas emergentes para imprimir.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
 export async function renderCotizaciones(root) {
   const { start, end } = monthRange();
   let cotizaciones = [];
-  let selectedId = null;
+  let cotizacionModal = null;
 
   root.innerHTML = `
     ${renderAppShell('cotizaciones', 'Cotizaciones')}
-    <main class="container-fluid py-2">
-      <div class="row g-3 cotizaciones-split">
-        <div class="col-lg-7">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-header card-header-app py-2 d-flex justify-content-between align-items-center">
-              <h2 class="h6 mb-0"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Lista de cotizaciones</h2>
-              <button type="button" class="btn btn-light btn-sm" id="btnNuevaCotizacion">
-                <i class="fa-solid fa-plus me-1"></i>Nueva
+    <main class="container-fluid py-2 cotizaciones-page">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header card-header-app py-2">
+          <h2 class="h6 mb-0"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Lista de cotizaciones</h2>
+        </div>
+        <div class="card-body py-2">
+          <form id="filtroCotizacionesForm" class="row g-2 align-items-end mb-2">
+            <div class="col-md-5">
+              <label class="form-label" for="filtroCotDesde">Desde</label>
+              <input type="date" class="form-control form-control-sm" id="filtroCotDesde" value="${start}" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" for="filtroCotHasta">Hasta</label>
+              <input type="date" class="form-control form-control-sm" id="filtroCotHasta" value="${end}" required>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
               </button>
             </div>
-            <div class="card-body py-2">
-              <form id="filtroCotizacionesForm" class="row g-2 align-items-end mb-2">
-                <div class="col-5">
-                  <label class="form-label" for="filtroCotDesde">Desde</label>
-                  <input type="date" class="form-control form-control-sm" id="filtroCotDesde" value="${start}" required>
-                </div>
-                <div class="col-5">
-                  <label class="form-label" for="filtroCotHasta">Hasta</label>
-                  <input type="date" class="form-control form-control-sm" id="filtroCotHasta" value="${end}" required>
-                </div>
-                <div class="col-2">
-                  <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                  </button>
-                </div>
-              </form>
-              <div class="table-responsive cotizaciones-list-wrap">
-                <table class="table table-sm table-hover small mb-0">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Fecha</th>
-                      <th>Cliente</th>
-                      <th>Teléfono</th>
-                      <th>Vence</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cotizacionesTableBody">
-                    <tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-lg-5">
-          <div class="card border-0 shadow-sm h-100">
-            <div class="card-header card-header-app py-2">
-              <h2 class="h6 mb-0"><i class="fa-solid fa-pen-to-square me-2"></i>Detalle de cotización</h2>
-            </div>
-            <div class="card-body py-2">
-              <form id="cotizacionForm">
-                <input type="hidden" id="cotizacionId">
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionFecha">Fecha</label>
-                  <input type="date" class="form-control form-control-sm" id="cotizacionFecha" required>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionCliente">Cliente</label>
-                  <input type="text" class="form-control form-control-sm" id="cotizacionCliente" required>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionTelefono">Teléfono</label>
-                  <input type="text" class="form-control form-control-sm" id="cotizacionTelefono" required>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionVence">Vence</label>
-                  <input type="date" class="form-control form-control-sm" id="cotizacionVence" required>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionTotalPrecio">Total precio</label>
-                  <input type="number" class="form-control form-control-sm" id="cotizacionTotalPrecio" min="0" step="0.01">
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionStatus">Status</label>
-                  <select class="form-select form-select-sm" id="cotizacionStatus" required>
-                    <option value="PENDIENTE">Pendiente</option>
-                    <option value="TERMINADA">Terminada</option>
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label" for="cotizacionDetalles">Detalles</label>
-                  <textarea class="form-control form-control-sm" id="cotizacionDetalles" rows="6"></textarea>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                  <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
-                  <button type="button" class="btn btn-secondary btn-sm" id="btnLimpiarCotizacion">Nueva</button>
-                  <button type="button" class="btn btn-danger btn-sm d-none" id="btnEliminarCotizacion">Eliminar</button>
-                </div>
-              </form>
-            </div>
+          </form>
+          <div class="table-responsive cotizaciones-list-wrap">
+            <table class="table table-sm table-hover small mb-0">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Teléfono</th>
+                  <th>Vence</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="cotizacionesTableBody">
+                <tr><td colspan="8" class="text-center text-muted">Cargando...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     </main>
+    <button type="button" class="btn btn-primary fab-add-cotizacion" id="btnFabNuevaCotizacion" aria-label="Nueva cotización">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+    <div class="modal fade" id="cotizacionModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content small">
+          <div class="modal-header modal-header-app py-2">
+            <h5 class="modal-title" id="cotizacionModalLabel">Nueva cotización</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="cotizacionForm" class="modal-body py-2">
+            <input type="hidden" id="cotizacionId">
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionFecha">Fecha</label>
+              <input type="date" class="form-control form-control-sm" id="cotizacionFecha" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionCliente">Cliente</label>
+              <input type="text" class="form-control form-control-sm" id="cotizacionCliente" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionTelefono">Teléfono</label>
+              <input type="text" class="form-control form-control-sm" id="cotizacionTelefono" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionVence">Vence</label>
+              <input type="date" class="form-control form-control-sm" id="cotizacionVence" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionTotalPrecio">Total precio</label>
+              <input type="number" class="form-control form-control-sm" id="cotizacionTotalPrecio" min="0" step="0.01">
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionStatus">Status</label>
+              <select class="form-select form-select-sm" id="cotizacionStatus" required>
+                <option value="PENDIENTE">Pendiente</option>
+                <option value="TERMINADA">Terminada</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="cotizacionDetalles">Detalles</label>
+              <textarea class="form-control form-control-sm" id="cotizacionDetalles" rows="6"></textarea>
+            </div>
+          </form>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" form="cotizacionForm" class="btn btn-primary btn-sm">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 
   await bindLogout();
 
+  cotizacionModal = new bootstrap.Modal(document.getElementById('cotizacionModal'));
   const tableBody = document.getElementById('cotizacionesTableBody');
-  const btnEliminar = document.getElementById('btnEliminarCotizacion');
 
-  function clearForm() {
-    selectedId = null;
+  function openCreateModal() {
+    const today = toDateInput(new Date());
     document.getElementById('cotizacionForm').reset();
     document.getElementById('cotizacionId').value = '';
-    document.getElementById('cotizacionFecha').value = toDateInput(new Date());
+    document.getElementById('cotizacionModalLabel').textContent = 'Nueva cotización';
+    document.getElementById('cotizacionFecha').value = today;
+    document.getElementById('cotizacionVence').value = today;
     document.getElementById('cotizacionStatus').value = 'PENDIENTE';
-    btnEliminar.classList.add('d-none');
-    document.querySelectorAll('#cotizacionesTableBody tr').forEach((row) => {
-      row.classList.remove('table-active');
-    });
+    cotizacionModal.show();
   }
 
-  function fillForm(cot) {
-    selectedId = cot.id;
+  function openEditModal(cot) {
+    document.getElementById('cotizacionModalLabel').textContent = `Editar cotización #${cot.id}`;
     document.getElementById('cotizacionId').value = cot.id;
     document.getElementById('cotizacionFecha').value = cot.fecha;
     document.getElementById('cotizacionCliente').value = cot.cliente;
@@ -169,20 +211,64 @@ export async function renderCotizaciones(root) {
       cot.totalprecio != null ? cot.totalprecio : '';
     document.getElementById('cotizacionStatus').value = cot.status || 'PENDIENTE';
     document.getElementById('cotizacionDetalles').value = cot.detalles || '';
-    btnEliminar.classList.remove('d-none');
+    cotizacionModal.show();
+  }
+
+  function bindRowActions() {
+    document.querySelectorAll('.btn-cot-print').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = Number(btn.dataset.id);
+        try {
+          const cot = await api.getCotizacion(id);
+          printCotizacion(cot);
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-cot-edit').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = Number(btn.dataset.id);
+        try {
+          const cot = await api.getCotizacion(id);
+          openEditModal(cot);
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-cot-delete').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = Number(btn.dataset.id);
+        const ok = await confirmAction('Eliminar cotización', '¿Confirma la eliminación?');
+        if (!ok) return;
+        try {
+          await api.deleteCotizacion(id);
+          toastSuccess('Cotización eliminada');
+          await loadList();
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
   }
 
   function renderTable() {
     if (!cotizaciones.length) {
       tableBody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-muted">No hay cotizaciones en el rango.</td></tr>';
+        '<tr><td colspan="8" class="text-center text-muted">No hay cotizaciones en el rango.</td></tr>';
       return;
     }
 
     tableBody.innerHTML = cotizaciones
       .map(
         (c) => `
-        <tr class="cotizacion-row ${selectedId === c.id ? 'table-active' : ''}" data-id="${c.id}" role="button">
+        <tr>
           <td>${c.id}</td>
           <td class="text-nowrap">${escapeHtml(c.fecha)}</td>
           <td>${escapeHtml(c.cliente)}</td>
@@ -190,22 +276,22 @@ export async function renderCotizaciones(root) {
           <td class="text-nowrap">${escapeHtml(c.vence)}</td>
           <td class="text-nowrap">${formatImporte(c.totalprecio)}</td>
           <td>${statusBadge(c.status)}</td>
+          <td class="text-end text-nowrap">
+            <button type="button" class="btn btn-outline-secondary btn-sm btn-cot-print" data-id="${c.id}" title="Imprimir">
+              <i class="fa-solid fa-print"></i>
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm btn-cot-edit" data-id="${c.id}" title="Editar">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm btn-cot-delete" data-id="${c.id}" title="Eliminar">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td>
         </tr>`
       )
       .join('');
 
-    document.querySelectorAll('.cotizacion-row').forEach((row) => {
-      row.addEventListener('click', async () => {
-        const id = Number(row.dataset.id);
-        try {
-          const cot = await api.getCotizacion(id);
-          fillForm(cot);
-          renderTable();
-        } catch (err) {
-          toastError(err.message);
-        }
-      });
-    });
+    bindRowActions();
   }
 
   async function loadList() {
@@ -225,7 +311,7 @@ export async function renderCotizaciones(root) {
       renderTable();
     } catch (err) {
       tableBody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-danger">Error al cargar</td></tr>';
+        '<tr><td colspan="8" class="text-center text-danger">Error al cargar</td></tr>';
       toastError(err.message);
     }
   }
@@ -235,8 +321,7 @@ export async function renderCotizaciones(root) {
     loadList();
   });
 
-  document.getElementById('btnNuevaCotizacion').addEventListener('click', clearForm);
-  document.getElementById('btnLimpiarCotizacion').addEventListener('click', clearForm);
+  document.getElementById('btnFabNuevaCotizacion').addEventListener('click', openCreateModal);
 
   document.getElementById('cotizacionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -257,31 +342,15 @@ export async function renderCotizaciones(root) {
         await api.updateCotizacion({ id: Number(id), ...body });
         toastSuccess('Cotización actualizada');
       } else {
-        const created = await api.createCotizacion(body);
-        fillForm(created);
+        await api.createCotizacion(body);
         toastSuccess('Cotización creada');
       }
+      cotizacionModal.hide();
       await loadList();
     } catch (err) {
       toastError(err.message);
     }
   });
 
-  btnEliminar.addEventListener('click', async () => {
-    const id = document.getElementById('cotizacionId').value;
-    if (!id) return;
-    const ok = await confirmAction('Eliminar cotización', '¿Confirma la eliminación?');
-    if (!ok) return;
-    try {
-      await api.deleteCotizacion(Number(id));
-      clearForm();
-      toastSuccess('Cotización eliminada');
-      await loadList();
-    } catch (err) {
-      toastError(err.message);
-    }
-  });
-
-  clearForm();
   await loadList();
 }
