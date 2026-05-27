@@ -1,0 +1,18 @@
+{
+  "name": "calendario-eventos",
+  "version": "1.0.0",
+  "description": "Calendario de eventos con empleados - HTML, Node.js y SQLite",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node scripts/generate-icons.js && node server.js",
+    "test": "nodemon --watch server --watch server.js --ext js server.js",
+    "icons": "node scripts/generate-icons.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2",
+    "nodemon": "^3.1.14"
+  }
+}

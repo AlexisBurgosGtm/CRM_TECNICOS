@@ -1,0 +1,76 @@
+import * as api from '../api.js';
+import { clearSession, isSupervisor } from '../auth.js';
+import { navigate } from '../router.js';
+import { confirmAction, toastSuccess } from '../alerts.js';
+
+export function renderLogoutButton() {
+  return `<button type="button" class="btn btn-outline-light btn-sm" id="btnLogout"><i class="fa-solid fa-right-from-bracket me-1"></i>Salir</button>`;
+}
+
+export async function bindLogout() {
+  const btn = document.getElementById('btnLogout');
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', async () => {
+    const ok = await confirmAction('Cerrar sesión', '¿Desea salir de la aplicación?');
+    if (!ok) return;
+    try {
+      await api.logout();
+    } catch {
+      /* ignore */
+    }
+    clearSession();
+    toastSuccess('Sesión cerrada');
+    navigate('login');
+  });
+}
+
+export function renderAppShell(activePage, pageTitle, extraHeaderHtml = '') {
+  const allPages = [
+    { id: 'inicio', label: 'Inicio', path: 'inicio', icon: 'fa-house', supervisorOnly: true },
+    { id: 'calendario', label: 'Eventos', path: 'calendario', icon: 'fa-calendar-days', supervisorOnly: false },
+    { id: 'empleados', label: 'Empleados', path: 'empleados', icon: 'fa-user-group', supervisorOnly: true },
+    { id: 'clientes', label: 'Clientes', path: 'clientes', icon: 'fa-building', supervisorOnly: true },
+    { id: 'cotizaciones', label: 'Cotizaciones', path: 'cotizaciones', icon: 'fa-file-invoice-dollar', supervisorOnly: true },
+  ];
+
+  const pages = isSupervisor()
+    ? allPages
+    : allPages.filter((p) => !p.supervisorOnly);
+
+  const navLinks = pages
+    .map(
+      (p) => `
+      <a class="nav-link rounded-0 px-3 py-2 d-flex align-items-center ${activePage === p.id ? 'active' : ''}"
+         href="#/${p.path}" data-nav-page="${p.id}">
+        <i class="fa-solid ${p.icon} me-2 nav-icon"></i>${p.label}
+      </a>`
+    )
+    .join('');
+
+  return `
+    <nav class="navbar navbar-app small sticky-top shadow-sm">
+      <div class="container-fluid">
+        <button class="btn btn-outline-light btn-sm d-inline-flex align-items-center justify-content-center menu-hamburger"
+          type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-label="Abrir menú">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <span class="navbar-brand mb-0 h6 ms-2">${pageTitle}</span>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          ${extraHeaderHtml}
+          ${renderLogoutButton()}
+        </div>
+      </div>
+    </nav>
+    <div class="offcanvas offcanvas-start small sidebar-offcanvas" tabindex="-1" id="sidebarMenu"
+      data-bs-scroll="true" data-bs-backdrop="true">
+      <div class="offcanvas-header offcanvas-header-app border-bottom py-2">
+        <h6 class="offcanvas-title mb-0"><i class="fa-solid fa-calendar-check me-2"></i>Calendario eventos</h6>
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <div class="offcanvas-body p-0">
+        <nav class="nav flex-column nav-pills sidebar-nav">${navLinks}</nav>
+      </div>
+    </div>
+  `;
+}

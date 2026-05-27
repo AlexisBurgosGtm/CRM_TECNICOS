@@ -1,0 +1,275 @@
+:root {
+  --primary-start: #5b21b6;
+  --primary-end: #a855f7;
+  --primary-mid: #7c3aed;
+  --bs-primary: #7c3aed;
+  --bs-primary-rgb: 124, 58, 237;
+  --bs-body-color: #000;
+  --bs-body-bg: #fff;
+  --bs-secondary-color: #333;
+  --bs-border-color: #e0e0e0;
+}
+
+body {
+  color: #000;
+  background-color: #fff;
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+}
+
+.navbar-app {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%) !important;
+}
+
+.navbar-app .navbar-brand,
+.navbar-app .btn-outline-light {
+  color: #fff;
+}
+
+.navbar-app .btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+.navbar-app .btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.offcanvas-header-app {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+  color: #fff;
+}
+
+.offcanvas-header-app .btn-close {
+  filter: invert(1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+  border: none;
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background: linear-gradient(135deg, #4c1d95 0%, #9333ea 100%);
+  color: #fff;
+  border: none;
+}
+
+.btn-secondary {
+  background-color: #fff;
+  color: #000;
+  border: 1px solid var(--bs-border-color);
+}
+
+.btn-secondary:hover {
+  background-color: #f5f5f5;
+  color: #000;
+  border-color: #ccc;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary-mid);
+  box-shadow: 0 0 0 0.2rem rgba(124, 58, 237, 0.3);
+  color: #000;
+}
+
+.table thead.table-app {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+  color: #fff;
+}
+
+.table thead.table-app th {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.card-header-app,
+.modal-header-app {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+  color: #fff;
+}
+
+.dashboard-total-importe {
+  color: #000;
+  font-weight: 600;
+}
+
+.dashboard-split .card,
+.cotizaciones-split .card {
+  min-height: 420px;
+}
+
+.cotizaciones-list-wrap {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.cotizacion-row {
+  cursor: pointer;
+}
+
+.eventos-list-wrap {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.bg-success-subtle {
+  background-color: #dcfce7 !important;
+}
+
+.bg-warning-subtle {
+  background-color: #fef9c3 !important;
+}
+
+.modal-header-app .btn-close {
+  filter: invert(1);
+}
+
+.menu-hamburger {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+}
+
+.sidebar-offcanvas {
+  width: min(85vw, 280px);
+  background-color: #fff;
+}
+
+@media (min-width: 992px) {
+  .sidebar-offcanvas {
+    width: 280px;
+  }
+}
+
+.sidebar-nav .nav-link {
+  color: #000;
+}
+
+.sidebar-nav .nav-link.active {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+  color: #fff;
+}
+
+.sidebar-nav .nav-link:not(.active):hover {
+  background-color: #f3e8ff;
+  color: #000;
+}
+
+main {
+  background-color: #fff;
+}
+
+.alert-success {
+  background-color: #f3e8ff;
+  border-color: #d8b4fe;
+  color: #000;
+}
+
+#calendar {
+  min-height: 480px;
+}
+
+@media (max-width: 767.98px) {
+  #calendar {
+    min-height: 360px;
+  }
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1rem;
+  color: #000;
+}
+
+.fc .fc-button-primary {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%) !important;
+  border: none !important;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: #5b21b6 !important;
+}
+
+.fc-event {
+  border-width: 2px !important;
+}
+
+.badge-estatus-pendiente {
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.badge-estatus-realizado {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.empleado-color-swatch {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  vertical-align: middle;
+}
+
+.fc-event-outline,
+.fc-event-outline .fc-event-main,
+.fc-event-outline .fc-event-title {
+  background-color: #fff !important;
+  color: #000 !important;
+}
+
+.badge-estado-activo {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.badge-estado-inactivo {
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.empleado-resumen-item {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.empleado-resumen-item:hover {
+  background-color: #f3e8ff;
+}
+
+.sidebar-nav .nav-link .nav-icon {
+  width: 1.1rem;
+  text-align: center;
+}
+
+.calendar-filters .form-label {
+  margin-bottom: 0.15rem;
+}
+
+.login-wrapper {
+  background: linear-gradient(160deg, #f8f5ff 0%, #ffffff 45%, #ede9fe 100%);
+}
+
+.login-card {
+  max-width: 380px;
+  background: #fff;
+}
+
+.login-header {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+}
+
+.swal2-popup {
+  color: #000 !important;
+}
+
+.swal2-styled.swal2-confirm {
+  background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%) !important;
+}
