@@ -594,14 +594,17 @@ router.post(
 
 router.post(
   '/tickets/finalizar',
-  requireSupervisor,
   asyncHandler(async (req, res) => {
     const id = Number(req.body?.id);
     const existing = await queryOne(
-      `SELECT id, status, reporte_tecnico, foto1, foto2, foto3 FROM tickets WHERE id = ?`,
+      `SELECT id, status, codigo_empleado, reporte_tecnico, accesos, notas, insumos, foto1, foto2, foto3
+       FROM tickets WHERE id = ?`,
       [id]
     );
     if (!existing) return res.status(404).json({ error: 'Ticket no encontrado.' });
+    if (!canAccessTicket(existing, req.auth)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
     if (existing.status === 'FINALIZADO') {
       return res.status(400).json({ error: 'El ticket ya está finalizado.' });
     }

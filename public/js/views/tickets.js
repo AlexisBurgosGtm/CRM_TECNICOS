@@ -125,11 +125,11 @@ export async function renderTickets(root) {
                   <th>Cliente</th>
                   <th>Reporte cliente</th>
                   <th>Días</th>
-                  ${supervisor ? '<th class="text-end">Acciones</th>' : ''}
+                  <th class="text-end">Acciones</th>
                 </tr>
               </thead>
               <tbody id="ticketsTableBody">
-                <tr><td colspan="${supervisor ? 6 : 5}" class="text-center text-muted">Cargando...</td></tr>
+                <tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr>
               </tbody>
             </table>
           </div>
@@ -253,8 +253,8 @@ export async function renderTickets(root) {
   await bindLogout();
 
   const tableBody = document.getElementById('ticketsTableBody');
-  const colSpan = supervisor ? 6 : 5;
-  let bindRowActions = () => {};
+  const colSpan = 6;
+  let bindSupervisorRowActions = () => {};
 
   function renderTable() {
     const visible = tickets.filter((t) => matchesSearch(t, searchQuery));
@@ -284,7 +284,11 @@ export async function renderTickets(root) {
               <i class="fa-solid fa-trash"></i>
             </button>
           </td>`
-          : '';
+          : `<td class="text-end text-nowrap ticket-row-actions" data-label="Acciones">
+            <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
+              <i class="fa-solid fa-check me-1"></i>Finalizar
+            </button>
+          </td>`;
         return `
         <tr>
           <td class="text-nowrap" data-label="Inicio">${escapeHtml(formatDate(t.fecha_inicio))}</td>
@@ -297,12 +301,68 @@ export async function renderTickets(root) {
       })
       .join('');
 
-    if (supervisor) bindRowActions();
+    bindFinalizarActions();
+    if (supervisor) bindSupervisorRowActions();
   }
+
+  finalizarModal = new bootstrap.Modal(document.getElementById('finalizarTicketModal'));
+
+  function openFinalizarModal(ticket) {
+    document.getElementById('finalizarTicketForm').reset();
+    document.getElementById('finalizarTicketModalLabel').textContent = `Finalizar ticket #${ticket.id}`;
+    document.getElementById('finalizarTicketId').value = ticket.id;
+    document.getElementById('finalizarFechaFin').value = toDateInput(new Date());
+    document.getElementById('finalizarReporteTecnico').value = ticket.reporte_tecnico || '';
+    document.getElementById('finalizarAccesos').value = ticket.accesos || '';
+    document.getElementById('finalizarNotas').value = ticket.notas || '';
+    document.getElementById('finalizarInsumos').value = ticket.insumos || '';
+    finalizarModal.show();
+  }
+
+  function bindFinalizarActions() {
+    document.querySelectorAll('.btn-ticket-finalizar').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.dataset.id);
+        try {
+          const ticket = await api.getTicket(id);
+          openFinalizarModal(ticket);
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
+  }
+
+  document.getElementById('finalizarTicketForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = Number(document.getElementById('finalizarTicketId').value);
+
+    try {
+      const body = {
+        fecha_fin: document.getElementById('finalizarFechaFin').value,
+        reporte_tecnico: document.getElementById('finalizarReporteTecnico').value.trim() || null,
+        accesos: document.getElementById('finalizarAccesos').value.trim() || null,
+        notas: document.getElementById('finalizarNotas').value.trim() || null,
+        insumos: document.getElementById('finalizarInsumos').value.trim() || null,
+      };
+      const f1 = await readOptionalPhoto('finalizarFoto1');
+      const f2 = await readOptionalPhoto('finalizarFoto2');
+      const f3 = await readOptionalPhoto('finalizarFoto3');
+      if (f1) body.foto1 = f1;
+      if (f2) body.foto2 = f2;
+      if (f3) body.foto3 = f3;
+
+      await api.finalizarTicket(id, body);
+      finalizarModal.hide();
+      toastSuccess('Ticket finalizado');
+      await loadList();
+    } catch (err) {
+      toastError(err.message);
+    }
+  });
 
   if (supervisor) {
     ticketModal = new bootstrap.Modal(document.getElementById('ticketModal'));
-    finalizarModal = new bootstrap.Modal(document.getElementById('finalizarTicketModal'));
     asignarModal = new bootstrap.Modal(document.getElementById('asignarTicketModal'));
 
     const empleadoSelect = document.getElementById('ticketEmpleado');
@@ -358,19 +418,7 @@ export async function renderTickets(root) {
       asignarModal.show();
     }
 
-    function openFinalizarModal(ticket) {
-      document.getElementById('finalizarTicketForm').reset();
-      document.getElementById('finalizarTicketModalLabel').textContent = `Finalizar ticket #${ticket.id}`;
-      document.getElementById('finalizarTicketId').value = ticket.id;
-      document.getElementById('finalizarFechaFin').value = toDateInput(new Date());
-      document.getElementById('finalizarReporteTecnico').value = ticket.reporte_tecnico || '';
-      document.getElementById('finalizarAccesos').value = ticket.accesos || '';
-      document.getElementById('finalizarNotas').value = ticket.notas || '';
-      document.getElementById('finalizarInsumos').value = ticket.insumos || '';
-      finalizarModal.show();
-    }
-
-    bindRowActions = function () {
+    bindSupervisorRowActions = function () {
       document.querySelectorAll('.btn-ticket-asignar').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const id = Number(btn.dataset.id);
@@ -389,18 +437,6 @@ export async function renderTickets(root) {
           try {
             const ticket = await api.getTicket(id);
             openEditModal(ticket);
-          } catch (err) {
-            toastError(err.message);
-          }
-        });
-      });
-
-      document.querySelectorAll('.btn-ticket-finalizar').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const id = Number(btn.dataset.id);
-          try {
-            const ticket = await api.getTicket(id);
-            openFinalizarModal(ticket);
           } catch (err) {
             toastError(err.message);
           }
@@ -465,34 +501,6 @@ export async function renderTickets(root) {
         await api.assignTicketEmpleado(id, codigo_empleado);
         asignarModal.hide();
         toastSuccess('Empleado asignado');
-        await loadList();
-      } catch (err) {
-        toastError(err.message);
-      }
-    });
-
-    document.getElementById('finalizarTicketForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = Number(document.getElementById('finalizarTicketId').value);
-
-      try {
-        const body = {
-          fecha_fin: document.getElementById('finalizarFechaFin').value,
-          reporte_tecnico: document.getElementById('finalizarReporteTecnico').value.trim() || null,
-          accesos: document.getElementById('finalizarAccesos').value.trim() || null,
-          notas: document.getElementById('finalizarNotas').value.trim() || null,
-          insumos: document.getElementById('finalizarInsumos').value.trim() || null,
-        };
-        const f1 = await readOptionalPhoto('finalizarFoto1');
-        const f2 = await readOptionalPhoto('finalizarFoto2');
-        const f3 = await readOptionalPhoto('finalizarFoto3');
-        if (f1) body.foto1 = f1;
-        if (f2) body.foto2 = f2;
-        if (f3) body.foto3 = f3;
-
-        await api.finalizarTicket(id, body);
-        finalizarModal.hide();
-        toastSuccess('Ticket finalizado');
         await loadList();
       } catch (err) {
         toastError(err.message);
