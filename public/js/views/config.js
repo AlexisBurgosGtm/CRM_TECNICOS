@@ -1,5 +1,5 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
 import { confirmAction, toastError, toastSuccess } from '../alerts.js';
 
 function pad(n) {
@@ -18,10 +18,10 @@ function monthRange() {
 }
 
 export async function renderConfig(root) {
+  updateAppShell('config', 'Config');
   const { start, end } = monthRange();
 
   root.innerHTML = `
-    ${renderAppShell('config', 'Config')}
     <main class="container-fluid py-2 config-page">
       <div class="row g-3">
         <div class="col-lg-6">

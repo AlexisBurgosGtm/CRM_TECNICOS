@@ -1,5 +1,5 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
 import { isSupervisor } from '../auth.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
 import { formatDate } from '../format.js';
@@ -95,6 +95,7 @@ function mountTicketsFab() {
 }
 
 export async function renderTickets(root) {
+  updateAppShell('tickets', 'Tickets');
   const supervisor = isSupervisor();
   let tickets = [];
   let searchQuery = '';
@@ -104,7 +105,6 @@ export async function renderTickets(root) {
   let empleadosActivos = [];
 
   root.innerHTML = `
-    ${renderAppShell('tickets', 'Tickets')}
     <main class="container-fluid py-2 cotizaciones-page">
       <div class="card border-0 shadow-sm">
         <div class="card-header card-header-app py-2">
@@ -213,6 +213,13 @@ export async function renderTickets(root) {
               <input type="date" class="form-control form-control-sm" id="finalizarFechaFin" required>
             </div>
             <div class="mb-2">
+              <label class="form-label" for="finalizarTotalPrecio">Total precio</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Q</span>
+                <input type="number" class="form-control form-control-sm" id="finalizarTotalPrecio" min="0" step="0.01">
+              </div>
+            </div>
+            <div class="mb-2">
               <label class="form-label" for="finalizarReporteTecnico">Reporte técnico</label>
               <textarea class="form-control form-control-sm" id="finalizarReporteTecnico" rows="4"></textarea>
             </div>
@@ -312,6 +319,8 @@ export async function renderTickets(root) {
     document.getElementById('finalizarTicketModalLabel').textContent = `Finalizar ticket #${ticket.id}`;
     document.getElementById('finalizarTicketId').value = ticket.id;
     document.getElementById('finalizarFechaFin').value = toDateInput(new Date());
+    document.getElementById('finalizarTotalPrecio').value =
+      ticket.totalprecio != null ? ticket.totalprecio : '';
     document.getElementById('finalizarReporteTecnico').value = ticket.reporte_tecnico || '';
     document.getElementById('finalizarAccesos').value = ticket.accesos || '';
     document.getElementById('finalizarNotas').value = ticket.notas || '';
@@ -338,8 +347,10 @@ export async function renderTickets(root) {
     const id = Number(document.getElementById('finalizarTicketId').value);
 
     try {
+      const totalVal = document.getElementById('finalizarTotalPrecio').value.trim();
       const body = {
         fecha_fin: document.getElementById('finalizarFechaFin').value,
+        totalprecio: totalVal !== '' ? Number(totalVal) : null,
         reporte_tecnico: document.getElementById('finalizarReporteTecnico').value.trim() || null,
         accesos: document.getElementById('finalizarAccesos').value.trim() || null,
         notas: document.getElementById('finalizarNotas').value.trim() || null,

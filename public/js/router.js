@@ -1,4 +1,5 @@
 import { isAuthenticated, canAccessRoute, getDefaultRoute } from './auth.js';
+import { closeSidebar, hideAppShell } from './components/layout.js';
 import { renderLogin } from './views/login.js';
 import { renderHome } from './views/home.js';
 import { renderCalendar, destroyCalendar } from './views/calendar.js';
@@ -80,10 +81,16 @@ export async function handleRoute() {
     removeFloatingActions();
   }
 
+  closeSidebar();
+
   currentRoute = path;
   const root = document.getElementById('root');
   removeDetachedModals();
   root.innerHTML = '';
+
+  if (!route.auth) {
+    hideAppShell();
+  }
 
   const stage = document.createElement('div');
   stage.className = 'view-slide-enter';

@@ -1,7 +1,9 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
-import { toastError } from '../alerts.js';
-import { formatDate } from '../format.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
+import { toastError, toastSuccess } from '../alerts.js';
+import { formatDate, formatImporte } from '../format.js';
+import { statusBadge, renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
+import { exportRowsToExcel } from '../export-excel.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -24,52 +26,66 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function statusBadge(status) {
-  if (status === 'FINALIZADO') {
-    return '<span class="badge badge-estatus-realizado">Finalizado</span>';
-  }
-  return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
+function statusLabel(status) {
+  return status === 'FINALIZADO' ? 'Finalizado' : 'Pendiente';
 }
 
-function photoUrl(filename) {
-  if (!filename) return null;
-  return `/FOTOS/${encodeURIComponent(filename)}`;
-}
-
-function renderPhotoBlock(label, filename) {
-  const url = photoUrl(filename);
-  if (!url) {
-    return `<div class="mb-2"><span class="text-muted">${escapeHtml(label)}: —</span></div>`;
-  }
-  return `
-    <div class="mb-3">
-      <div class="fw-semibold mb-1">${escapeHtml(label)}</div>
-      <img src="${url}" alt="${escapeHtml(label)}" class="ticket-archivo-photo img-fluid rounded border">
-      <div class="small text-muted mt-1">${escapeHtml(filename)}</div>
-    </div>`;
+function matchesSearch(ticket, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const haystack = [
+    ticket.fecha_inicio,
+    ticket.fecha_fin,
+    ticket.empleado_nombre,
+    ticket.cliente_empresa,
+    ticket.cliente_nombre,
+    ticket.reporte_cliente,
+    ticket.status,
+    ticket.totalprecio,
+  ]
+    .map((v) => String(v || '').toLowerCase())
+    .join(' ');
+  return haystack.includes(q);
 }
 
 export async function renderArchivo(root) {
+  updateAppShell('archivo', 'Archivo');
   const { start, end } = monthRange();
   let tickets = [];
+  let searchQuery = '';
   let detailModal = null;
+  const tableColSpan = 8;
 
   root.innerHTML = `
-    ${renderAppShell('archivo', 'Archivo')}
     <main class="container-fluid py-2 cotizaciones-page">
       <div class="card border-0 shadow-sm">
         <div class="card-header card-header-app py-2">
           <h2 class="h6 mb-0"><i class="fa-solid fa-box-archive me-2"></i>Archivo de tickets</h2>
         </div>
         <div class="card-body py-2">
-          <div id="filtroArchivo" class="row g-2 mb-2">
-            <div class="col-md-6">
-              <label class="form-label" for="archivoDesde">Desde</label>
-              <input type="date" class="form-control form-control-sm" id="archivoDesde" value="${start}" required>
+          <div id="filtroArchivo" class="mb-2">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label" for="archivoDesde">Desde</label>
+                <input type="date" class="form-control form-control-sm" id="archivoDesde" value="${start}" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="archivoHasta">Hasta</label>
+                <input type="date" class="form-control form-control-sm" id="archivoHasta" value="${end}" required>
+              </div>
+              <div class="col-md-4">
+                <h3 class="mb-1 text-danger text-end" id="archivoTotalImporte">Q 0.00</h3>
+                <button type="button" class="btn btn-success btn-sm w-100" id="btnArchivoExportar">
+                  <i class="fa-solid fa-file-excel me-1"></i>Exportar Excel
+                </button>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label" for="archivoHasta">Hasta</label>
-              <input type="date" class="form-control form-control-sm" id="archivoHasta" value="${end}" required>
+            <div class="row g-2 mt-2">
+              <div class="col-12">
+                <label class="form-label visually-hidden" for="archivoSearch">Buscar en la tabla</label>
+                <input type="search" class="form-control form-control-sm" id="archivoSearch"
+                  placeholder="Buscar en la tabla…" autocomplete="off">
+              </div>
             </div>
           </div>
           <div class="table-responsive cotizaciones-list-wrap">
@@ -80,12 +96,14 @@ export async function renderArchivo(root) {
                   <th>Fin</th>
                   <th>Empleado</th>
                   <th>Cliente</th>
+                  <th>Reporte cliente</th>
+                  <th class="text-end">Importe</th>
                   <th>Status</th>
                   <th class="text-end">Acciones</th>
                 </tr>
               </thead>
               <tbody id="archivoTableBody">
-                <tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr>
+                <tr><td colspan="${tableColSpan}" class="text-center text-muted">Cargando...</td></tr>
               </tbody>
             </table>
           </div>
@@ -115,24 +133,22 @@ export async function renderArchivo(root) {
 
   function openDetailModal(ticket) {
     document.getElementById('archivoTicketModalLabel').textContent = `Ticket #${ticket.id}`;
-    document.getElementById('archivoTicketModalBody').innerHTML = `
-      <dl class="row mb-3 small">
-        <dt class="col-sm-3">Fecha inicio</dt><dd class="col-sm-9">${escapeHtml(formatDate(ticket.fecha_inicio))}</dd>
-        <dt class="col-sm-3">Fecha fin</dt><dd class="col-sm-9">${escapeHtml(formatDate(ticket.fecha_fin))}</dd>
-        <dt class="col-sm-3">Empleado</dt><dd class="col-sm-9">${escapeHtml(ticket.empleado_nombre || 'Sin asignar')}</dd>
-        <dt class="col-sm-3">Cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_empresa || ticket.cliente_nombre || '—')}</dd>
-        <dt class="col-sm-3">Status</dt><dd class="col-sm-9">${statusBadge(ticket.status)}</dd>
-        <dt class="col-sm-3">Reporte cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.reporte_cliente || '—')}</dd>
-        <dt class="col-sm-3">Reporte técnico</dt><dd class="col-sm-9">${escapeHtml(ticket.reporte_tecnico || '—')}</dd>
-        <dt class="col-sm-3">Accesos</dt><dd class="col-sm-9">${escapeHtml(ticket.accesos || '—')}</dd>
-        <dt class="col-sm-3">Notas</dt><dd class="col-sm-9">${escapeHtml(ticket.notas || '—')}</dd>
-        <dt class="col-sm-3">Insumos</dt><dd class="col-sm-9">${escapeHtml(ticket.insumos || '—')}</dd>
-      </dl>
-      ${renderPhotoBlock('Foto 1', ticket.foto1)}
-      ${renderPhotoBlock('Foto 2', ticket.foto2)}
-      ${renderPhotoBlock('Foto 3', ticket.foto3)}
-    `;
+    const body = document.getElementById('archivoTicketModalBody');
+    body.innerHTML = renderTicketDetailHtml(ticket);
+    bindPhotoZoom(body);
     detailModal.show();
+  }
+
+  function getVisibleTickets() {
+    return tickets.filter((t) => matchesSearch(t, searchQuery));
+  }
+
+  function updateTotalImporte(visibleTickets) {
+    const total = visibleTickets.reduce(
+      (sum, t) => sum + (t.totalprecio != null ? Number(t.totalprecio) : 0),
+      0
+    );
+    document.getElementById('archivoTotalImporte').textContent = formatImporte(total);
   }
 
   function bindRowActions() {
@@ -150,13 +166,22 @@ export async function renderArchivo(root) {
   }
 
   function renderTable() {
+    const visible = getVisibleTickets();
+    updateTotalImporte(visible);
+
     if (!tickets.length) {
       tableBody.innerHTML =
-        '<tr><td colspan="6" class="text-center text-muted">No hay tickets en el rango seleccionado.</td></tr>';
+        `<tr><td colspan="${tableColSpan}" class="text-center text-muted">No hay tickets en el rango seleccionado.</td></tr>`;
       return;
     }
 
-    tableBody.innerHTML = tickets
+    if (!visible.length) {
+      tableBody.innerHTML =
+        `<tr><td colspan="${tableColSpan}" class="text-center text-muted">No hay tickets con ese criterio de búsqueda.</td></tr>`;
+      return;
+    }
+
+    tableBody.innerHTML = visible
       .map((t) => {
         const clienteLabel = t.cliente_empresa || t.cliente_nombre || '—';
         return `
@@ -165,6 +190,10 @@ export async function renderArchivo(root) {
           <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_fin))}</td>
           <td>${escapeHtml(t.empleado_nombre || 'Sin asignar')}</td>
           <td>${escapeHtml(clienteLabel)}</td>
+          <td>${escapeHtml(t.reporte_cliente || '—')}</td>
+          <td class="text-end text-nowrap">${
+            t.totalprecio != null ? escapeHtml(formatImporte(t.totalprecio)) : '—'
+          }</td>
           <td>${statusBadge(t.status)}</td>
           <td class="text-end">
             <button type="button" class="btn btn-outline-primary btn-sm btn-archivo-ver" data-id="${t.id}" title="Ver detalle">
@@ -178,6 +207,37 @@ export async function renderArchivo(root) {
     bindRowActions();
   }
 
+  async function exportToExcel() {
+    const visible = getVisibleTickets();
+    if (!visible.length) {
+      toastError('No hay datos para exportar con el filtro actual.');
+      return;
+    }
+
+    const desde = document.getElementById('archivoDesde').value;
+    const hasta = document.getElementById('archivoHasta').value;
+
+    const rows = [
+      ['Inicio', 'Fin', 'Empleado', 'Cliente', 'Reporte cliente', 'Importe', 'Status'],
+      ...visible.map((t) => [
+        formatDate(t.fecha_inicio),
+        formatDate(t.fecha_fin),
+        t.empleado_nombre || 'Sin asignar',
+        t.cliente_empresa || t.cliente_nombre || '',
+        t.reporte_cliente || '',
+        t.totalprecio != null ? Number(t.totalprecio) : '',
+        statusLabel(t.status),
+      ]),
+    ];
+
+    try {
+      await exportRowsToExcel(rows, 'Tickets', `archivo-tickets_${desde}_${hasta}.xlsx`);
+      toastSuccess('Archivo Excel generado');
+    } catch (err) {
+      toastError(err.message || 'No se pudo exportar a Excel.');
+    }
+  }
+
   async function loadList() {
     const desde = document.getElementById('archivoDesde').value;
     const hasta = document.getElementById('archivoHasta').value;
@@ -189,10 +249,12 @@ export async function renderArchivo(root) {
 
     try {
       tickets = await api.listTicketsArchivo(desde, hasta);
+      searchQuery = document.getElementById('archivoSearch').value.trim();
       renderTable();
     } catch (err) {
       tableBody.innerHTML =
-        '<tr><td colspan="6" class="text-center text-danger">Error al cargar</td></tr>';
+        `<tr><td colspan="${tableColSpan}" class="text-center text-danger">Error al cargar</td></tr>`;
+      document.getElementById('archivoTotalImporte').textContent = formatImporte(0);
       toastError(err.message);
     }
   }
@@ -203,6 +265,11 @@ export async function renderArchivo(root) {
 
   document.getElementById('archivoDesde').addEventListener('change', onDateFilterChange);
   document.getElementById('archivoHasta').addEventListener('change', onDateFilterChange);
+  document.getElementById('archivoSearch').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    renderTable();
+  });
+  document.getElementById('btnArchivoExportar').addEventListener('click', exportToExcel);
 
   await loadList();
 }

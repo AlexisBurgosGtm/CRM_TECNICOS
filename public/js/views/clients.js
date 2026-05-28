@@ -1,5 +1,5 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
 
 function escapeHtml(text) {
@@ -14,8 +14,8 @@ function formatCoord(v) {
 }
 
 export async function renderClients(root) {
+  updateAppShell('clientes', 'Clientes');
   root.innerHTML = `
-    ${renderAppShell('clientes', 'Clientes')}
     <main class="container-fluid py-2">
       <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
         <h1 class="h6 mb-0">Gestión de clientes</h1>

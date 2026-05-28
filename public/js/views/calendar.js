@@ -1,5 +1,5 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
 import { isSupervisor } from '../auth.js';
 import { toastError, toastWarning } from '../alerts.js';
 import { formatDate } from '../format.js';
@@ -72,10 +72,10 @@ export function destroyCalendar() {
 }
 
 export async function renderCalendar(root) {
+  updateAppShell('calendario', 'Calendario');
   const supervisor = isSupervisor();
 
   root.innerHTML = `
-    ${renderAppShell('calendario', 'Calendario')}
     <main class="container-fluid py-2">
       <div class="row g-2 mb-2 align-items-end calendar-filters">
         ${

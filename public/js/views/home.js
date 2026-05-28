@@ -1,7 +1,9 @@
 import * as api from '../api.js';
-import { renderAppShell, bindLogout } from '../components/layout.js';
+import { updateAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError } from '../alerts.js';
-import { formatDate } from '../format.js';
+import { formatDate, formatImporte } from '../format.js';
+import { statusBadge, renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
+import { renderImporteLineChart, destroyImporteChart } from '../components/dashboard-chart.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -42,11 +44,11 @@ function filterTickets(tickets, estatusFiltro) {
 }
 
 export async function renderHome(root) {
+  updateAppShell('inicio', 'Inicio');
   const { start, end } = monthRange();
   let dashboardData = { tickets: [], empleados: [] };
 
   root.innerHTML = `
-    ${renderAppShell('inicio', 'Inicio')}
     <main class="container-fluid py-2">
       <div class="row g-3 dashboard-split">
         <div class="col-lg-6">
@@ -55,27 +57,29 @@ export async function renderHome(root) {
               <h2 class="h6 mb-0"><i class="fa-solid fa-ticket me-2"></i>Tickets</h2>
             </div>
             <div class="card-body py-2">
-              <form id="filtroTicketsForm" class="row g-2 align-items-end mb-2">
-                <div class="col-4 col-md-3">
-                  <label class="form-label" for="filtroDesde">Desde</label>
-                  <input type="date" class="form-control form-control-sm" id="filtroDesde" value="${start}" required>
+              <form id="filtroTicketsForm" class="mb-2">
+                <div class="row g-2 align-items-end">
+                  <div class="col-4 col-md-4">
+                    <label class="form-label" for="filtroDesde">Desde</label>
+                    <input type="date" class="form-control form-control-sm" id="filtroDesde" value="${start}" required>
+                  </div>
+                  <div class="col-4 col-md-4">
+                    <label class="form-label" for="filtroHasta">Hasta</label>
+                    <input type="date" class="form-control form-control-sm" id="filtroHasta" value="${end}" required>
+                  </div>
+                  <div class="col-4 col-md-4">
+                    <label class="form-label" for="filtroEstatus">Estatus</label>
+                    <select class="form-select form-select-sm" id="filtroEstatus">
+                      <option value="">Todas</option>
+                      <option value="pendiente">Pendientes</option>
+                      <option value="realizado">Finalizados</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="col-4 col-md-3">
-                  <label class="form-label" for="filtroHasta">Hasta</label>
-                  <input type="date" class="form-control form-control-sm" id="filtroHasta" value="${end}" required>
-                </div>
-                <div class="col-4 col-md-4">
-                  <label class="form-label" for="filtroEstatus">Estatus</label>
-                  <select class="form-select form-select-sm" id="filtroEstatus">
-                    <option value="">Todas</option>
-                    <option value="pendiente">Pendientes</option>
-                    <option value="realizado">Finalizados</option>
-                  </select>
-                </div>
-                <div class="col-12 col-md-2">
-                  <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
-                  </button>
+                <div class="row mt-2">
+                  <div class="col-12 text-end">
+                    <h3 class="mb-0 text-danger" id="ticketsTotalPrecio">Q 0.00</h3>
+                  </div>
                 </div>
               </form>
               <div class="table-responsive eventos-list-wrap">
@@ -86,11 +90,12 @@ export async function renderHome(root) {
                       <th>Empleado</th>
                       <th>Cliente</th>
                       <th>Reporte</th>
+                      <th>Total precio</th>
                       <th>Estatus</th>
                     </tr>
                   </thead>
                   <tbody id="ticketsListBody">
-                    <tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -98,7 +103,17 @@ export async function renderHome(root) {
           </div>
         </div>
         <div class="col-lg-6">
-          <div class="card border-0 shadow-sm h-100">
+          <div class="card border-0 shadow-sm mb-3 dashboard-chart-card">
+            <div class="card-header card-header-app py-2">
+              <h2 class="h6 mb-0"><i class="fa-solid fa-chart-line me-2"></i>Importe por fecha</h2>
+            </div>
+            <div class="card-body py-2">
+              <div class="dashboard-importe-chart-wrap">
+                <canvas id="importePorFechaChart" aria-label="Gráfica de importe por fecha"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card border-0 shadow-sm">
             <div class="card-header card-header-app py-2">
               <h2 class="h6 mb-0"><i class="fa-solid fa-user-group me-2"></i>Empleados — pendientes</h2>
             </div>
@@ -111,6 +126,20 @@ export async function renderHome(root) {
         </div>
       </div>
     </main>
+    <div class="modal fade" id="homeTicketModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content small">
+          <div class="modal-header modal-header-app py-2">
+            <h5 class="modal-title" id="homeTicketModalLabel">Detalle del ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body py-2" id="homeTicketModalBody"></div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal fade" id="pendientesEmpleadoModal" tabindex="-1">
       <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content small">
@@ -132,33 +161,78 @@ export async function renderHome(root) {
   const ticketsListBody = document.getElementById('ticketsListBody');
   const empleadosResumenList = document.getElementById('empleadosResumenList');
   const pendientesModal = new bootstrap.Modal(document.getElementById('pendientesEmpleadoModal'));
+  const ticketDetailModal = new bootstrap.Modal(document.getElementById('homeTicketModal'));
 
-  function statusBadge(status) {
-    if (status === 'FINALIZADO') {
-      return '<span class="badge badge-estatus-realizado">Finalizado</span>';
+  function openTicketDetailModal(ticket) {
+    document.getElementById('homeTicketModalLabel').textContent = `Ticket #${ticket.id}`;
+    const body = document.getElementById('homeTicketModalBody');
+    body.innerHTML = renderTicketDetailHtml(ticket);
+    bindPhotoZoom(body);
+    ticketDetailModal.show();
+  }
+
+  function bindTicketRowActions() {
+    document.querySelectorAll('.home-ticket-row').forEach((row) => {
+      row.addEventListener('click', async () => {
+        const id = Number(row.dataset.id);
+        try {
+          const ticket = await api.getTicket(id);
+          openTicketDetailModal(ticket);
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
+  }
+
+  function updateTotalPrecio(tickets) {
+    const total = tickets.reduce((sum, t) => sum + (t.totalprecio != null ? Number(t.totalprecio) : 0), 0);
+    document.getElementById('ticketsTotalPrecio').textContent = formatImporte(total);
+  }
+
+  async function updateImporteChart(tickets) {
+    const desde = document.getElementById('filtroDesde').value;
+    const hasta = document.getElementById('filtroHasta').value;
+    const canvas = document.getElementById('importePorFechaChart');
+    if (!desde || !hasta || desde > hasta) {
+      destroyImporteChart();
+      return;
     }
-    return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
+    try {
+      await renderImporteLineChart(canvas, tickets, desde, hasta);
+    } catch (err) {
+      destroyImporteChart();
+      console.warn('No se pudo renderizar la gráfica:', err);
+    }
   }
 
   function renderTicketsTable(tickets) {
+    updateTotalPrecio(tickets);
+    updateImporteChart(tickets);
+
     if (!tickets.length) {
       ticketsListBody.innerHTML =
-        '<tr><td colspan="5" class="text-center text-muted">No hay tickets con el filtro seleccionado.</td></tr>';
+        '<tr><td colspan="6" class="text-center text-muted">No hay tickets con el filtro seleccionado.</td></tr>';
       return;
     }
 
     ticketsListBody.innerHTML = tickets
       .map(
         (t) => `
-          <tr>
+          <tr class="home-ticket-row" role="button" data-id="${t.id}" title="Ver detalle del ticket">
             <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
             <td>${escapeHtml(t.empleado_nombre)}</td>
             <td>${escapeHtml(t.cliente_empresa || t.cliente_nombre || '—')}</td>
             <td>${escapeHtml(t.reporte_cliente || '—')}</td>
+            <td class="text-end text-nowrap">${
+              t.totalprecio != null ? escapeHtml(formatImporte(t.totalprecio)) : '—'
+            }</td>
             <td>${statusBadge(t.status)}</td>
           </tr>`
       )
       .join('');
+
+    bindTicketRowActions();
   }
 
   function openPendientesModal(empleado) {
@@ -181,8 +255,6 @@ export async function renderHome(root) {
                 <th>Inicio</th>
                 <th>Cliente</th>
                 <th>Reporte</th>
-                <th>Accesos</th>
-                <th>Notas</th>
               </tr>
             </thead>
             <tbody>
@@ -193,8 +265,6 @@ export async function renderHome(root) {
                   <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
                   <td>${escapeHtml(t.cliente_empresa || t.cliente_nombre || '—')}</td>
                   <td>${escapeHtml(t.reporte_cliente || '—')}</td>
-                  <td>${escapeHtml(t.accesos || '—')}</td>
-                  <td>${escapeHtml(t.notas || '—')}</td>
                 </tr>`
                 )
                 .join('')}
@@ -255,7 +325,9 @@ export async function renderHome(root) {
       }
     } catch (err) {
       ticketsListBody.innerHTML =
-        '<tr><td colspan="5" class="text-center text-danger">Error al cargar tickets</td></tr>';
+        '<tr><td colspan="6" class="text-center text-danger">Error al cargar tickets</td></tr>';
+      document.getElementById('ticketsTotalPrecio').textContent = formatImporte(0);
+      destroyImporteChart();
       empleadosResumenList.innerHTML = '<li class="list-group-item text-danger">Error al cargar</li>';
       toastError(err.message);
     }
@@ -263,7 +335,22 @@ export async function renderHome(root) {
 
   document.getElementById('filtroTicketsForm').addEventListener('submit', (e) => {
     e.preventDefault();
+  });
+
+  function onFiltroFechaChange() {
+    const desde = document.getElementById('filtroDesde').value;
+    const hasta = document.getElementById('filtroHasta').value;
+    if (!desde || !hasta) return;
+    if (desde > hasta) return;
     loadDashboard();
+  }
+
+  document.getElementById('filtroDesde').addEventListener('change', onFiltroFechaChange);
+  document.getElementById('filtroHasta').addEventListener('change', onFiltroFechaChange);
+
+  document.getElementById('filtroEstatus').addEventListener('change', () => {
+    const estatusFiltro = document.getElementById('filtroEstatus').value;
+    renderTicketsTable(filterTickets(dashboardData.tickets, estatusFiltro));
   });
 
   await loadDashboard();

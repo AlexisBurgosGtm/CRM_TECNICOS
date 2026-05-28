@@ -361,7 +361,7 @@ router.post(
 
 const TICKET_LIST_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
-         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.status,
+         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.totalprecio, t.status,
          emp.nombre AS empleado_nombre,
          c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre
   FROM tickets t
@@ -597,7 +597,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const id = Number(req.body?.id);
     const existing = await queryOne(
-      `SELECT id, status, codigo_empleado, reporte_tecnico, accesos, notas, insumos, foto1, foto2, foto3
+      `SELECT id, status, codigo_empleado, reporte_tecnico, accesos, notas, insumos, totalprecio,
+              foto1, foto2, foto3
        FROM tickets WHERE id = ?`,
       [id]
     );
@@ -627,6 +628,19 @@ router.post(
     const insumos =
       req.body.insumos !== undefined ? String(req.body.insumos).trim() || null : undefined;
 
+    let totalprecio = existing.totalprecio;
+    if (req.body.totalprecio !== undefined) {
+      if (req.body.totalprecio === null || req.body.totalprecio === '') {
+        totalprecio = null;
+      } else {
+        const num = Number(req.body.totalprecio);
+        if (Number.isNaN(num) || num < 0) {
+          return res.status(400).json({ error: 'Total precio debe ser un número mayor o igual a 0.' });
+        }
+        totalprecio = Math.round(num * 100) / 100;
+      }
+    }
+
     const foto1 =
       req.body.foto1 !== undefined
         ? saveTicketPhoto(req.body.foto1, id, 1)
@@ -643,8 +657,8 @@ router.post(
     await execute(
       `UPDATE tickets SET status = 'FINALIZADO', fecha_fin = ?, reporte_tecnico = ?,
        accesos = COALESCE(?, accesos), notas = COALESCE(?, notas), insumos = COALESCE(?, insumos),
-       foto1 = ?, foto2 = ?, foto3 = ? WHERE id = ?`,
-      [fechaFinParsed.iso, reporteTecnico, accesos, notas, insumos, foto1, foto2, foto3, id]
+       totalprecio = ?, foto1 = ?, foto2 = ?, foto3 = ? WHERE id = ?`,
+      [fechaFinParsed.iso, reporteTecnico, accesos, notas, insumos, totalprecio, foto1, foto2, foto3, id]
     );
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
