@@ -15,6 +15,10 @@ body {
   background-color: #fff;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 .bg-gradient-primary {
   background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
 }
@@ -111,14 +115,15 @@ body {
   overflow-y: auto;
 }
 
-.fab-add-cotizacion {
+.fab-add-cotizacion,
+.fab-add-floating {
   position: fixed;
   right: 1.5rem;
   bottom: 1.5rem;
   width: 4rem;
   height: 4rem;
   border-radius: 50%;
-  z-index: 1030;
+  z-index: 1040;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -129,9 +134,41 @@ body {
 }
 
 .fab-add-cotizacion:hover,
-.fab-add-cotizacion:focus {
+.fab-add-cotizacion:focus,
+.fab-add-floating:hover,
+.fab-add-floating:focus {
   transform: scale(1.04);
   color: #fff;
+}
+
+.ticket-dias-verde {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.ticket-dias-amarillo {
+  background-color: #eab308 !important;
+  color: #000 !important;
+}
+
+.ticket-dias-rojo {
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.ticket-photo-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 80px;
+  margin-top: 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid #ddd;
+}
+
+.ticket-archivo-photo {
+  max-height: 240px;
+  object-fit: contain;
+  background: #f8f8f8;
 }
 
 .eventos-list-wrap {
@@ -275,8 +312,41 @@ main {
   margin-bottom: 0.15rem;
 }
 
-.login-wrapper {
+.login-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
   background: linear-gradient(160deg, #f8f5ff 0%, #ffffff 45%, #ede9fe 100%);
+}
+
+.login-brand-logo {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  z-index: 2;
+}
+
+.login-build-label {
+  position: fixed;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  font-size: 0.75rem;
+  color: #555;
+  z-index: 2;
+}
+
+.login-wrapper {
+  flex: 1;
+}
+
+.ticket-reporte-cell {
+  max-width: 220px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .login-card {

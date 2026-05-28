@@ -311,14 +311,119 @@ function validateCotizacion(body, partial = false) {
   };
 }
 
+const TICKET_STATUS = ['PENDIENTE', 'FINALIZADO'];
+
+function parseOptionalDateOnly(value, fieldName) {
+  if (value === undefined || value === null || value === '') {
+    return { valid: true, value: null };
+  }
+  return parseDateOnly(value, fieldName);
+}
+
+function optionalText(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function optionalVarchar(value, fieldName, maxLen, errors) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const text = String(value).trim();
+  if (text.length > maxLen) {
+    errors.push(`${fieldName} no puede superar ${maxLen} caracteres.`);
+    return text.slice(0, maxLen);
+  }
+  return text || null;
+}
+
+function parseOptionalEmpleado(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+function validateTicket(body, partial = false) {
+  const errors = [];
+  const codigoEmpleado =
+    body.codigo_empleado !== undefined ? parseOptionalEmpleado(body.codigo_empleado) : undefined;
+  const codigoCliente =
+    body.codigo_cliente !== undefined ? Number(body.codigo_cliente) : undefined;
+  const reporteCliente =
+    body.reporte_cliente !== undefined ? optionalText(body.reporte_cliente) : undefined;
+  const reporteTecnico =
+    body.reporte_tecnico !== undefined ? optionalText(body.reporte_tecnico) : undefined;
+  const accesos =
+    body.accesos !== undefined ? optionalVarchar(body.accesos, 'Accesos', 255, errors) : undefined;
+  const notas = body.notas !== undefined ? optionalText(body.notas) : undefined;
+  const status = body.status !== undefined ? String(body.status).trim().toUpperCase() : undefined;
+  const foto1 = body.foto1 !== undefined ? body.foto1 || null : undefined;
+  const foto2 = body.foto2 !== undefined ? body.foto2 || null : undefined;
+  const foto3 = body.foto3 !== undefined ? body.foto3 || null : undefined;
+
+  let fechaInicioParsed;
+  let fechaFinParsed;
+  if (!partial || body.fecha_inicio !== undefined) {
+    fechaInicioParsed = parseDateOnly(body.fecha_inicio, 'Fecha inicio');
+    if (!fechaInicioParsed.valid) errors.push(fechaInicioParsed.error);
+  }
+  if (!partial || body.fecha_fin !== undefined) {
+    fechaFinParsed = parseOptionalDateOnly(body.fecha_fin, 'Fecha fin');
+    if (!fechaFinParsed.valid) errors.push(fechaFinParsed.error);
+  }
+
+  if (!partial || body.codigo_empleado !== undefined) {
+    if (codigoEmpleado !== null && codigoEmpleado !== undefined) {
+      if (!Number.isInteger(codigoEmpleado) || codigoEmpleado <= 0) {
+        errors.push('Debe seleccionar un empleado válido.');
+      }
+    }
+  }
+  if (!partial || codigoCliente !== undefined) {
+    if (!Number.isInteger(codigoCliente) || codigoCliente <= 0) {
+      errors.push('Debe seleccionar un cliente válido.');
+    }
+  }
+  if (!partial || status !== undefined) {
+    const value = status !== undefined ? status : partial ? undefined : 'PENDIENTE';
+    if (value !== undefined && !TICKET_STATUS.includes(value)) {
+      errors.push('El status debe ser PENDIENTE o FINALIZADO.');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: {
+      fecha_inicio: fechaInicioParsed?.iso,
+      fecha_fin: fechaFinParsed?.value,
+      codigo_empleado: codigoEmpleado !== undefined ? codigoEmpleado : partial ? undefined : null,
+      codigo_cliente: codigoCliente,
+      reporte_cliente: reporteCliente,
+      reporte_tecnico: reporteTecnico,
+      accesos,
+      notas,
+      status: status !== undefined ? status : partial ? undefined : 'PENDIENTE',
+      foto1,
+      foto2,
+      foto3,
+    },
+  };
+}
+
 module.exports = {
   TELEFONO_REGEX,
   EVENTO_ESTATUS,
   EMPLEADO_TIPOS,
   EMPLEADO_ESTADOS,
   COTIZACION_STATUS,
+  TICKET_STATUS,
   validateEmpleado,
   validateCliente,
   validateEvento,
   validateCotizacion,
+  validateTicket,
+  parseDateOnly,
 };

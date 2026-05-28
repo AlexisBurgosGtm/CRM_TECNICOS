@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const db = require('./db');
+const { queryOne } = require('./db');
 
 const sessions = new Map();
 
@@ -7,18 +7,17 @@ function createToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
-function findEmpleadoByNombre(nombre) {
-  return db
-    .prepare(
-      `SELECT codigo, nombre, telefono, tipo, estado, clave, color
-       FROM empleados
-       WHERE UPPER(nombre) = UPPER(?) AND estado = 'ACTIVO'`
-    )
-    .get(String(nombre).trim());
+async function findEmpleadoByNombre(nombre) {
+  return queryOne(
+    `SELECT codigo, nombre, telefono, tipo, estado, clave, color
+     FROM empleados
+     WHERE UPPER(nombre) = UPPER(?) AND estado = 'ACTIVO'`,
+    [String(nombre).trim()]
+  );
 }
 
-function login(nombre, clave) {
-  const empleado = findEmpleadoByNombre(nombre);
+async function login(nombre, clave) {
+  const empleado = await findEmpleadoByNombre(nombre);
   if (!empleado || empleado.clave !== String(clave)) {
     return null;
   }

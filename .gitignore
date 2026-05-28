@@ -1,2 +1,6 @@
 node_modules/
+.env
 public/cache-version.json
+FOTOS/*
+!FOTOS/.gitkeep
+data/calendario.db

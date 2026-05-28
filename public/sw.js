@@ -34,7 +34,8 @@ const PRECACHE_URLS = [
   '/js/views/calendar.js',
   '/js/views/employees.js',
   '/js/views/clients.js',
-  '/js/views/cotizaciones.js',
+  '/js/views/tickets.js',
+  '/js/views/archivo.js',
   '/js/components/layout.js',
 ];
 

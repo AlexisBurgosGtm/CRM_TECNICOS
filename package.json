@@ -1,18 +1,23 @@
 {
   "name": "calendario-eventos",
   "version": "1.0.0",
-  "description": "Calendario de eventos con empleados - HTML, Node.js y SQLite",
+  "description": "TECNOSYSTEM - Gestión de eventos, empleados, clientes y cotizaciones con MySQL",
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
     "start": "node scripts/generate-icons.js && node server.js",
     "test": "nodemon --watch server --watch server.js --ext js server.js",
     "icons": "node scripts/generate-icons.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "migrate:mysql": "node scripts/migrate-sqlite-to-mysql.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "mysql": "^2.18.1",
     "nodemon": "^3.1.14"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^11.10.0"
   }
 }

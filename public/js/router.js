@@ -4,18 +4,24 @@ import { renderHome } from './views/home.js';
 import { renderCalendar, destroyCalendar } from './views/calendar.js';
 import { renderEmployees } from './views/employees.js';
 import { renderClients } from './views/clients.js';
-import { renderCotizaciones } from './views/cotizaciones.js';
+import { renderTickets } from './views/tickets.js';
+import { renderArchivo } from './views/archivo.js';
 
 const routes = {
   login: { render: renderLogin, auth: false },
   inicio: { render: renderHome, auth: true },
+  tickets: { render: renderTickets, auth: true },
   calendario: { render: renderCalendar, auth: true },
+  archivo: { render: renderArchivo, auth: true },
   empleados: { render: renderEmployees, auth: true },
   clientes: { render: renderClients, auth: true },
-  cotizaciones: { render: renderCotizaciones, auth: true },
 };
 
 let currentRoute = null;
+
+function removeFloatingActions() {
+  document.getElementById('btnFabNuevoTicket')?.remove();
+}
 
 function parseHash() {
   const hash = window.location.hash.replace(/^#\/?/, '') || '';
@@ -54,9 +60,14 @@ export async function handleRoute() {
     destroyCalendar();
   }
 
+  if (currentRoute !== path) {
+    removeFloatingActions();
+  }
+
   currentRoute = path;
   const root = document.getElementById('root');
   root.innerHTML = '';
+
   await route.render(root);
 }
 

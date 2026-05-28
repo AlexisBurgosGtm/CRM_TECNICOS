@@ -42,12 +42,14 @@ export function isAuthenticated() {
 }
 
 export function getDefaultRoute() {
-  return isSupervisor() ? 'inicio' : 'calendario';
+  return isSupervisor() ? 'inicio' : 'tickets';
 }
 
 export function canAccessRoute(path) {
   if (path === 'login') return true;
   if (!isAuthenticated()) return false;
-  if (isSupervisor()) return ['inicio', 'calendario', 'empleados', 'clientes', 'cotizaciones'].includes(path);
-  return path === 'calendario';
+  if (isSupervisor()) {
+    return ['inicio', 'tickets', 'calendario', 'archivo', 'empleados', 'clientes'].includes(path);
+  }
+  return ['calendario', 'tickets'].includes(path);
 }

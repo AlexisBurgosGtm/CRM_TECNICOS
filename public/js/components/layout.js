@@ -28,10 +28,11 @@ export async function bindLogout() {
 export function renderAppShell(activePage, pageTitle, extraHeaderHtml = '') {
   const allPages = [
     { id: 'inicio', label: 'Inicio', path: 'inicio', icon: 'fa-house', supervisorOnly: true },
+    { id: 'tickets', label: 'Tickets', path: 'tickets', icon: 'fa-ticket', supervisorOnly: false },
     { id: 'calendario', label: 'Eventos', path: 'calendario', icon: 'fa-calendar-days', supervisorOnly: false },
+    { id: 'archivo', label: 'Archivo', path: 'archivo', icon: 'fa-box-archive', supervisorOnly: true },
     { id: 'empleados', label: 'Empleados', path: 'empleados', icon: 'fa-user-group', supervisorOnly: true },
     { id: 'clientes', label: 'Clientes', path: 'clientes', icon: 'fa-building', supervisorOnly: true },
-    { id: 'cotizaciones', label: 'Cotizaciones', path: 'cotizaciones', icon: 'fa-file-invoice-dollar', supervisorOnly: true },
   ];
 
   const pages = isSupervisor()
@@ -65,7 +66,7 @@ export function renderAppShell(activePage, pageTitle, extraHeaderHtml = '') {
     <div class="offcanvas offcanvas-start small sidebar-offcanvas" tabindex="-1" id="sidebarMenu"
       data-bs-scroll="true" data-bs-backdrop="true">
       <div class="offcanvas-header offcanvas-header-app border-bottom py-2">
-        <h6 class="offcanvas-title mb-0"><i class="fa-solid fa-calendar-check me-2"></i>Calendario eventos</h6>
+        <h6 class="offcanvas-title mb-0"><i class="fa-solid fa-calendar-check me-2"></i>TECNOSYSTEM</h6>
         <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="offcanvas"></button>
       </div>
       <div class="offcanvas-body p-0">

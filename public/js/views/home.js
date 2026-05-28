@@ -1,7 +1,7 @@
 import * as api from '../api.js';
 import { renderAppShell, bindLogout } from '../components/layout.js';
-import { toastSuccess, toastError, promptTotalPrecio } from '../alerts.js';
-import { formatDateTime, formatImporte } from '../format.js';
+import { toastSuccess, toastError } from '../alerts.js';
+import { formatDate } from '../format.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -25,36 +25,25 @@ function rangeToIso(fromDate, toDate) {
   };
 }
 
-function sumImporte(eventos) {
-  return eventos.reduce((acc, e) => acc + (e.totalprecio == null ? 0 : Number(e.totalprecio)), 0);
-}
-
-function estatusBadge(estatus) {
-  if (estatus === 'realizado') {
-    return '<span class="badge badge-estatus-realizado">Realizado</span>';
-  }
-  return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
-}
-
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text ?? '';
   return div.innerHTML;
 }
 
-function filterEventos(eventos, estatusFiltro) {
+function filterTickets(tickets, estatusFiltro) {
   if (estatusFiltro === 'pendiente') {
-    return eventos.filter((e) => e.estatus === 'pendiente');
+    return tickets.filter((t) => t.status === 'PENDIENTE');
   }
   if (estatusFiltro === 'realizado') {
-    return eventos.filter((e) => e.estatus === 'realizado');
+    return tickets.filter((t) => t.status === 'FINALIZADO');
   }
-  return eventos;
+  return tickets;
 }
 
 export async function renderHome(root) {
   const { start, end } = monthRange();
-  let dashboardData = { eventos: [], empleados: [] };
+  let dashboardData = { tickets: [], empleados: [] };
 
   root.innerHTML = `
     ${renderAppShell('inicio', 'Inicio')}
@@ -63,10 +52,10 @@ export async function renderHome(root) {
         <div class="col-lg-6">
           <div class="card border-0 shadow-sm h-100">
             <div class="card-header card-header-app py-2">
-              <h2 class="h6 mb-0"><i class="fa-solid fa-list-check me-2"></i>Eventos</h2>
+              <h2 class="h6 mb-0"><i class="fa-solid fa-ticket me-2"></i>Tickets</h2>
             </div>
             <div class="card-body py-2">
-              <form id="filtroEventosForm" class="row g-2 align-items-end mb-2">
+              <form id="filtroTicketsForm" class="row g-2 align-items-end mb-2">
                 <div class="col-4 col-md-3">
                   <label class="form-label" for="filtroDesde">Desde</label>
                   <input type="date" class="form-control form-control-sm" id="filtroDesde" value="${start}" required>
@@ -80,7 +69,7 @@ export async function renderHome(root) {
                   <select class="form-select form-select-sm" id="filtroEstatus">
                     <option value="">Todas</option>
                     <option value="pendiente">Pendientes</option>
-                    <option value="realizado">Realizadas</option>
+                    <option value="realizado">Finalizados</option>
                   </select>
                 </div>
                 <div class="col-12 col-md-2">
@@ -89,22 +78,19 @@ export async function renderHome(root) {
                   </button>
                 </div>
               </form>
-              <h1 class="h5 mb-2 dashboard-total-importe" id="totalImporteLabel">Total importe: Q 0.00</h1>
               <div class="table-responsive eventos-list-wrap">
                 <table class="table table-sm table-hover small mb-0">
                   <thead>
                     <tr>
-                      <th>Título</th>
-                      <th>Fechas</th>
+                      <th>Inicio</th>
                       <th>Empleado</th>
                       <th>Cliente</th>
+                      <th>Reporte</th>
                       <th>Estatus</th>
-                      <th>Importe</th>
-                      <th></th>
                     </tr>
                   </thead>
-                  <tbody id="eventosListBody">
-                    <tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr>
+                  <tbody id="ticketsListBody">
+                    <tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -129,7 +115,7 @@ export async function renderHome(root) {
       <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content small">
           <div class="modal-header modal-header-app py-2">
-            <h5 class="modal-title" id="pendientesEmpleadoModalLabel">Tareas pendientes</h5>
+            <h5 class="modal-title" id="pendientesEmpleadoModalLabel">Tickets pendientes</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body py-2" id="pendientesEmpleadoBody"></div>
@@ -143,98 +129,60 @@ export async function renderHome(root) {
 
   await bindLogout();
 
-  const eventosListBody = document.getElementById('eventosListBody');
-  const totalImporteLabel = document.getElementById('totalImporteLabel');
+  const ticketsListBody = document.getElementById('ticketsListBody');
   const empleadosResumenList = document.getElementById('empleadosResumenList');
   const pendientesModal = new bootstrap.Modal(document.getElementById('pendientesEmpleadoModal'));
 
-  function renderEventosTable(eventos) {
-    totalImporteLabel.textContent = `Total importe: ${formatImporte(sumImporte(eventos))}`;
+  function statusBadge(status) {
+    if (status === 'FINALIZADO') {
+      return '<span class="badge badge-estatus-realizado">Finalizado</span>';
+    }
+    return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
+  }
 
-    if (!eventos.length) {
-      eventosListBody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-muted">No hay eventos con el filtro seleccionado.</td></tr>';
+  function renderTicketsTable(tickets) {
+    if (!tickets.length) {
+      ticketsListBody.innerHTML =
+        '<tr><td colspan="5" class="text-center text-muted">No hay tickets con el filtro seleccionado.</td></tr>';
       return;
     }
 
-    eventosListBody.innerHTML = eventos
+    ticketsListBody.innerHTML = tickets
       .map(
-        (e) => `
+        (t) => `
           <tr>
-            <td>${escapeHtml(e.titulo)}</td>
-            <td class="text-nowrap">${formatDateTime(e.inicio)}<br>${formatDateTime(e.fin)}</td>
-            <td>${escapeHtml(e.empleado_nombre)}</td>
-            <td>${escapeHtml(e.cliente_empresa || '—')}</td>
-            <td>${estatusBadge(e.estatus)}</td>
-            <td class="text-nowrap">${formatImporte(e.totalprecio)}</td>
-            <td class="text-end">
-              ${
-                e.estatus === 'pendiente'
-                  ? `<button type="button" class="btn btn-outline-primary btn-sm btn-marcar" data-id="${e.id}">Marcar realizado</button>`
-                  : `<button type="button" class="btn btn-outline-secondary btn-sm btn-marcar" data-id="${e.id}" data-estatus="pendiente">Marcar pendiente</button>`
-              }
-            </td>
+            <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
+            <td>${escapeHtml(t.empleado_nombre)}</td>
+            <td>${escapeHtml(t.cliente_empresa || t.cliente_nombre || '—')}</td>
+            <td>${escapeHtml(t.reporte_cliente || '—')}</td>
+            <td>${statusBadge(t.status)}</td>
           </tr>`
       )
       .join('');
-
-    document.querySelectorAll('.btn-marcar').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = Number(btn.dataset.id);
-        const nuevoEstatus = btn.dataset.estatus || 'realizado';
-        const evento = dashboardData.eventos.find((x) => x.id === id);
-        if (!evento) return;
-        try {
-          if (nuevoEstatus === 'realizado') {
-            const totalprecio = await promptTotalPrecio();
-            if (totalprecio === null) return;
-            await api.completarEvento(id, totalprecio);
-          } else {
-            await api.updateEvento({
-              id,
-              titulo: evento.titulo,
-              descripcion: evento.descripcion,
-              observaciones: evento.observaciones,
-              inicio: evento.inicio,
-              fin: evento.fin,
-              empleado_codigo: evento.empleado_codigo,
-              cliente_codigo: evento.cliente_codigo,
-              estatus: nuevoEstatus,
-              totalprecio: evento.totalprecio,
-              cotizado: evento.cotizado,
-            });
-          }
-          toastSuccess('Estatus actualizado');
-          await loadDashboard();
-        } catch (err) {
-          toastError(err.message);
-        }
-      });
-    });
   }
 
   function openPendientesModal(empleado) {
-    const tareas = dashboardData.eventos
-      .filter((e) => e.empleado_codigo === empleado.codigo && e.estatus === 'pendiente')
-      .sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
+    const tareas = dashboardData.tickets
+      .filter((t) => t.codigo_empleado === empleado.codigo && t.status === 'PENDIENTE')
+      .sort((a, b) => new Date(a.fecha_inicio) - new Date(b.fecha_inicio));
 
     document.getElementById('pendientesEmpleadoModalLabel').textContent =
       `Pendientes — ${empleado.nombre}`;
 
     const body = document.getElementById('pendientesEmpleadoBody');
     if (!tareas.length) {
-      body.innerHTML = '<p class="text-muted mb-0">No hay tareas pendientes en el rango seleccionado.</p>';
+      body.innerHTML = '<p class="text-muted mb-0">No hay tickets pendientes en el rango seleccionado.</p>';
     } else {
       body.innerHTML = `
         <div class="table-responsive">
           <table class="table table-sm table-hover small mb-0">
             <thead>
               <tr>
-                <th>Título</th>
                 <th>Inicio</th>
-                <th>Fin</th>
                 <th>Cliente</th>
-                <th>Observaciones</th>
+                <th>Reporte</th>
+                <th>Accesos</th>
+                <th>Notas</th>
               </tr>
             </thead>
             <tbody>
@@ -242,11 +190,11 @@ export async function renderHome(root) {
                 .map(
                   (t) => `
                 <tr>
-                  <td>${escapeHtml(t.titulo)}</td>
-                  <td class="text-nowrap">${formatDateTime(t.inicio)}</td>
-                  <td class="text-nowrap">${formatDateTime(t.fin)}</td>
-                  <td>${escapeHtml(t.cliente_empresa || '—')}</td>
-                  <td>${escapeHtml(t.observaciones || '—')}</td>
+                  <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
+                  <td>${escapeHtml(t.cliente_empresa || t.cliente_nombre || '—')}</td>
+                  <td>${escapeHtml(t.reporte_cliente || '—')}</td>
+                  <td>${escapeHtml(t.accesos || '—')}</td>
+                  <td>${escapeHtml(t.notas || '—')}</td>
                 </tr>`
                 )
                 .join('')}
@@ -273,8 +221,8 @@ export async function renderHome(root) {
     try {
       const { start, end } = rangeToIso(desde, hasta);
       dashboardData = await api.getDashboardResumen(start, end);
-      const eventosFiltrados = filterEventos(dashboardData.eventos, estatusFiltro);
-      renderEventosTable(eventosFiltrados);
+      const ticketsFiltrados = filterTickets(dashboardData.tickets, estatusFiltro);
+      renderTicketsTable(ticketsFiltrados);
 
       if (!dashboardData.empleados.length) {
         empleadosResumenList.innerHTML =
@@ -284,7 +232,7 @@ export async function renderHome(root) {
           .map(
             (e) => `
           <li class="list-group-item d-flex justify-content-between align-items-center px-0 empleado-resumen-item"
-              role="button" data-codigo="${e.codigo}" title="Ver tareas pendientes">
+              role="button" data-codigo="${e.codigo}" title="Ver tickets pendientes">
             <div>
               <strong>${escapeHtml(e.nombre)}</strong>
               <span class="text-muted ms-1">(${escapeHtml(e.telefono)})</span>
@@ -306,15 +254,14 @@ export async function renderHome(root) {
         });
       }
     } catch (err) {
-      eventosListBody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-danger">Error al cargar eventos</td></tr>';
-      totalImporteLabel.textContent = 'Total importe: Q 0.00';
+      ticketsListBody.innerHTML =
+        '<tr><td colspan="5" class="text-center text-danger">Error al cargar tickets</td></tr>';
       empleadosResumenList.innerHTML = '<li class="list-group-item text-danger">Error al cargar</li>';
       toastError(err.message);
     }
   }
 
-  document.getElementById('filtroEventosForm').addEventListener('submit', (e) => {
+  document.getElementById('filtroTicketsForm').addEventListener('submit', (e) => {
     e.preventDefault();
     loadDashboard();
   });
