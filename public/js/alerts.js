@@ -34,31 +34,34 @@ export function toastWarning(message) {
   });
 }
 
+const confirmDialogDefaults = {
+  showCancelButton: true,
+  reverseButtons: true,
+  confirmButtonColor: '#7c3aed',
+  cancelButtonColor: '#6c757d',
+};
+
 export async function confirmAction(title, text) {
   const result = await Swal.fire({
+    ...confirmDialogDefaults,
     title,
     text,
     icon: 'warning',
-    showCancelButton: true,
     confirmButtonText: 'Sí, continuar',
     cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#7c3aed',
-    cancelButtonColor: '#6c757d',
   });
   return result.isConfirmed;
 }
 
 export async function promptTotalPrecio() {
   const result = await Swal.fire({
+    ...confirmDialogDefaults,
     title: 'Completar evento',
     text: 'Indique el monto cobrado al cliente Q',
     input: 'number',
     inputAttributes: { min: 0, step: '0.01' },
-    showCancelButton: true,
     confirmButtonText: 'Confirmar',
     cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#7c3aed',
-    cancelButtonColor: '#6c757d',
     inputValidator: (value) => {
       if (value === '' || value === null) return 'Indique el monto cobrado al cliente.';
       if (Number(value) < 0) return 'El valor debe ser mayor o igual a 0.';

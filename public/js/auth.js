@@ -1,18 +1,15 @@
 const TOKEN_KEY = 'calendario_auth_token';
 const SESSION_KEY = 'calendario_auth_session';
 
+let memoryToken = null;
+let memorySession = null;
+
 export function getToken() {
-  return sessionStorage.getItem(TOKEN_KEY);
+  return memoryToken;
 }
 
 export function getSession() {
-  const raw = sessionStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return memorySession;
 }
 
 export function getEmpleado() {
@@ -28,11 +25,13 @@ export function isTecnico() {
 }
 
 export function setSession(token, empleado) {
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, empleado }));
+  memoryToken = token;
+  memorySession = { token, empleado };
 }
 
 export function clearSession() {
+  memoryToken = null;
+  memorySession = null;
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(SESSION_KEY);
 }

@@ -62,21 +62,16 @@ export async function renderArchivo(root) {
           <h2 class="h6 mb-0"><i class="fa-solid fa-box-archive me-2"></i>Archivo de tickets</h2>
         </div>
         <div class="card-body py-2">
-          <form id="filtroArchivoForm" class="row g-2 align-items-end mb-2">
-            <div class="col-md-5">
+          <div id="filtroArchivo" class="row g-2 mb-2">
+            <div class="col-md-6">
               <label class="form-label" for="archivoDesde">Desde</label>
               <input type="date" class="form-control form-control-sm" id="archivoDesde" value="${start}" required>
             </div>
-            <div class="col-md-5">
+            <div class="col-md-6">
               <label class="form-label" for="archivoHasta">Hasta</label>
               <input type="date" class="form-control form-control-sm" id="archivoHasta" value="${end}" required>
             </div>
-            <div class="col-md-2">
-              <button type="submit" class="btn btn-primary btn-sm w-100">
-                <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
-              </button>
-            </div>
-          </form>
+          </div>
           <div class="table-responsive cotizaciones-list-wrap">
             <table class="table table-sm table-hover small mb-0">
               <thead>
@@ -185,10 +180,7 @@ export async function renderArchivo(root) {
   async function loadList() {
     const desde = document.getElementById('archivoDesde').value;
     const hasta = document.getElementById('archivoHasta').value;
-    if (!desde || !hasta) {
-      toastError('Seleccione el rango de fechas.');
-      return;
-    }
+    if (!desde || !hasta) return;
     if (desde > hasta) {
       toastError('La fecha inicial no puede ser mayor que la final.');
       return;
@@ -204,10 +196,12 @@ export async function renderArchivo(root) {
     }
   }
 
-  document.getElementById('filtroArchivoForm').addEventListener('submit', (e) => {
-    e.preventDefault();
+  function onDateFilterChange() {
     loadList();
-  });
+  }
+
+  document.getElementById('archivoDesde').addEventListener('change', onDateFilterChange);
+  document.getElementById('archivoHasta').addEventListener('change', onDateFilterChange);
 
   await loadList();
 }

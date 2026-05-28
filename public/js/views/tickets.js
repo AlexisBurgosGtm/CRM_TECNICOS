@@ -82,6 +82,18 @@ function matchesSearch(ticket, query) {
   return haystack.includes(q);
 }
 
+function mountTicketsFab() {
+  document.getElementById('btnFabNuevoTicket')?.remove();
+  const fab = document.createElement('button');
+  fab.type = 'button';
+  fab.id = 'btnFabNuevoTicket';
+  fab.className = 'btn btn-primary fab-add-floating';
+  fab.setAttribute('aria-label', 'Nuevo ticket');
+  fab.innerHTML = '<i class="fa-solid fa-plus"></i>';
+  document.body.appendChild(fab);
+  return fab;
+}
+
 export async function renderTickets(root) {
   const supervisor = isSupervisor();
   let tickets = [];
@@ -124,13 +136,6 @@ export async function renderTickets(root) {
         </div>
       </div>
     </main>
-    ${
-      supervisor
-        ? `<button type="button" class="btn btn-primary fab-add-cotizacion" id="btnFabNuevoTicket" aria-label="Nuevo ticket">
-      <i class="fa-solid fa-plus"></i>
-    </button>`
-        : ''
-    }
     <div class="modal fade" id="ticketModal" tabindex="-1">
       <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content small">
@@ -245,6 +250,51 @@ export async function renderTickets(root) {
 
   const tableBody = document.getElementById('ticketsTableBody');
   const colSpan = supervisor ? 6 : 5;
+  let bindRowActions = () => {};
+
+  function renderTable() {
+    const visible = tickets.filter((t) => matchesSearch(t, searchQuery));
+
+    if (!visible.length) {
+      tableBody.innerHTML =
+        `<tr><td colspan="${colSpan}" class="text-center text-muted">No hay tickets pendientes con ese criterio.</td></tr>`;
+      return;
+    }
+
+    tableBody.innerHTML = visible
+      .map((t) => {
+        const days = daysElapsed(t.fecha_inicio);
+        const clienteLabel = t.cliente_empresa || t.cliente_nombre || '—';
+        const actionsCell = supervisor
+          ? `<td class="text-end text-nowrap">
+            <button type="button" class="btn btn-outline-secondary btn-sm btn-ticket-asignar" data-id="${t.id}" title="Asignar empleado">
+              <i class="fa-solid fa-user"></i>
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm btn-ticket-edit" data-id="${t.id}" title="Editar">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
+              <i class="fa-solid fa-check me-1"></i>Finalizar
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm btn-ticket-delete" data-id="${t.id}" title="Eliminar">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td>`
+          : '';
+        return `
+        <tr>
+          <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
+          <td>${escapeHtml(empleadoLabel(t))}</td>
+          <td>${escapeHtml(clienteLabel)}</td>
+          <td class="ticket-reporte-cell">${escapeHtml(truncate(t.reporte_cliente))}</td>
+          <td><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
+          ${actionsCell}
+        </tr>`;
+      })
+      .join('');
+
+    if (supervisor) bindRowActions();
+  }
 
   if (supervisor) {
     ticketModal = new bootstrap.Modal(document.getElementById('ticketModal'));
@@ -317,7 +367,7 @@ export async function renderTickets(root) {
       finalizarModal.show();
     }
 
-    function bindRowActions() {
+    bindRowActions = function () {
       document.querySelectorAll('.btn-ticket-asignar').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const id = Number(btn.dataset.id);
@@ -368,50 +418,10 @@ export async function renderTickets(root) {
           }
         });
       });
-    }
+    };
 
-    function renderTable() {
-      const visible = tickets.filter((t) => matchesSearch(t, searchQuery));
-
-      if (!visible.length) {
-        tableBody.innerHTML =
-          `<tr><td colspan="${colSpan}" class="text-center text-muted">No hay tickets pendientes con ese criterio.</td></tr>`;
-        return;
-      }
-
-      tableBody.innerHTML = visible
-        .map((t) => {
-          const days = daysElapsed(t.fecha_inicio);
-          const clienteLabel = t.cliente_empresa || t.cliente_nombre || '—';
-          return `
-        <tr>
-          <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
-          <td>${escapeHtml(empleadoLabel(t))}</td>
-          <td>${escapeHtml(clienteLabel)}</td>
-          <td class="ticket-reporte-cell">${escapeHtml(truncate(t.reporte_cliente))}</td>
-          <td><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
-          <td class="text-end text-nowrap">
-            <button type="button" class="btn btn-outline-secondary btn-sm btn-ticket-asignar" data-id="${t.id}" title="Asignar empleado">
-              <i class="fa-solid fa-user"></i>
-            </button>
-            <button type="button" class="btn btn-outline-primary btn-sm btn-ticket-edit" data-id="${t.id}" title="Editar">
-              <i class="fa-solid fa-pen"></i>
-            </button>
-            <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
-              <i class="fa-solid fa-check me-1"></i>Finalizar
-            </button>
-            <button type="button" class="btn btn-outline-danger btn-sm btn-ticket-delete" data-id="${t.id}" title="Eliminar">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </td>
-        </tr>`;
-        })
-        .join('');
-
-      bindRowActions();
-    }
-
-    document.getElementById('btnFabNuevoTicket').addEventListener('click', openCreateModal);
+    const fabBtn = mountTicketsFab();
+    fabBtn.addEventListener('click', openCreateModal);
 
     document.getElementById('ticketForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -482,31 +492,6 @@ export async function renderTickets(root) {
     });
 
     await loadSelects();
-  } else {
-    function renderTable() {
-      const visible = tickets.filter((t) => matchesSearch(t, searchQuery));
-
-      if (!visible.length) {
-        tableBody.innerHTML =
-          `<tr><td colspan="${colSpan}" class="text-center text-muted">No hay tickets pendientes con ese criterio.</td></tr>`;
-        return;
-      }
-
-      tableBody.innerHTML = visible
-        .map((t) => {
-          const days = daysElapsed(t.fecha_inicio);
-          const clienteLabel = t.cliente_empresa || t.cliente_nombre || '—';
-          return `
-        <tr>
-          <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
-          <td>${escapeHtml(empleadoLabel(t))}</td>
-          <td>${escapeHtml(clienteLabel)}</td>
-          <td class="ticket-reporte-cell">${escapeHtml(truncate(t.reporte_cliente))}</td>
-          <td><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
-        </tr>`;
-        })
-        .join('');
-    }
   }
 
   async function loadList() {

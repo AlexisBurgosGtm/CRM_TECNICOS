@@ -1,5 +1,5 @@
 import { initRouter } from './router.js';
-import { isAuthenticated, getDefaultRoute } from './auth.js';
+import { clearSession } from './auth.js';
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -33,9 +33,8 @@ async function registerServiceWorker() {
 }
 
 function boot() {
-  if (!window.location.hash) {
-    window.location.hash = isAuthenticated() ? `#/${getDefaultRoute()}` : '#/login';
-  }
+  clearSession();
+  window.location.hash = '#/login';
   initRouter();
 }
 

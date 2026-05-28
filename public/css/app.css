@@ -16,7 +16,45 @@ body {
 }
 
 #root {
+  overflow-x: hidden;
   min-height: 100vh;
+}
+
+.view-slide-enter {
+  animation: viewSlideInRight 0.32s ease-out both;
+}
+
+@keyframes viewSlideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.35;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-slide-enter {
+    animation: none;
+  }
+}
+
+/* Sin animación en modales Bootstrap (evita congelamiento con la transición de vistas) */
+.modal,
+.modal-backdrop,
+.modal.fade .modal-dialog {
+  transition: none !important;
+  animation: none !important;
+}
+
+.modal.show .modal-dialog {
+  transform: none !important;
+}
+
+.modal-backdrop.show {
+  opacity: 0.5;
 }
 
 .bg-gradient-primary {

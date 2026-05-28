@@ -23,6 +23,20 @@ function removeFloatingActions() {
   document.getElementById('btnFabNuevoTicket')?.remove();
 }
 
+function removeDetachedModals() {
+  document.querySelectorAll('body > .modal').forEach((el) => el.remove());
+  document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+  document.body.classList.remove('modal-open');
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('padding-right');
+}
+
+function attachModalsToBody(container) {
+  container.querySelectorAll('.modal').forEach((modalEl) => {
+    document.body.appendChild(modalEl);
+  });
+}
+
 function parseHash() {
   const hash = window.location.hash.replace(/^#\/?/, '') || '';
   return hash.split('?')[0] || 'login';
@@ -66,9 +80,15 @@ export async function handleRoute() {
 
   currentRoute = path;
   const root = document.getElementById('root');
+  removeDetachedModals();
   root.innerHTML = '';
 
-  await route.render(root);
+  const stage = document.createElement('div');
+  stage.className = 'view-slide-enter';
+  root.appendChild(stage);
+
+  await route.render(stage);
+  attachModalsToBody(stage);
 }
 
 export function initRouter() {
