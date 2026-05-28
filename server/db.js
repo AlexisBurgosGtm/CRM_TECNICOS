@@ -69,6 +69,8 @@ const SCHEMA_STATEMENTS = [
     reporte_tecnico TEXT NULL,
     accesos VARCHAR(255) NULL,
     notas TEXT NULL,
+    insumos LONGTEXT NULL,
+    totalprecio DECIMAL(12, 2) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
     foto1 VARCHAR(255) NULL,
     foto2 VARCHAR(255) NULL,
@@ -93,6 +95,13 @@ async function ensureTicketSchemaUpdates() {
     await query('ALTER TABLE tickets ADD COLUMN notas TEXT NULL');
   } else if (!String(byName.notas.Type).includes('text')) {
     await query('ALTER TABLE tickets MODIFY COLUMN notas TEXT NULL');
+  }
+
+  if (!byName.insumos) {
+    await query('ALTER TABLE tickets ADD COLUMN insumos LONGTEXT NULL');
+  }
+  if (!byName.totalprecio) {
+    await query('ALTER TABLE tickets ADD COLUMN totalprecio DECIMAL(12, 2) NULL');
   }
 
   if (byName.codigo_empleado && byName.codigo_empleado.Null === 'NO') {

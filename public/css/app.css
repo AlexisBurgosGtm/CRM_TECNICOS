@@ -194,6 +194,65 @@ body {
   color: #fff !important;
 }
 
+@media (max-width: 767.98px) {
+  .tickets-stack-table thead {
+    display: none;
+  }
+
+  .tickets-stack-table tbody tr {
+    display: block;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.65rem;
+    background: #fff;
+  }
+
+  .tickets-stack-table tbody td {
+    display: block;
+    border: none;
+    padding: 0.2rem 0;
+    text-align: left !important;
+  }
+
+  .tickets-stack-table tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.1rem;
+  }
+
+  .tickets-stack-table tbody td.ticket-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--bs-border-color);
+  }
+
+  .tickets-stack-table tbody td.ticket-row-actions::before {
+    display: none;
+  }
+
+  .tickets-stack-table tbody tr td[colspan] {
+    text-align: center !important;
+  }
+
+  .tickets-stack-table tbody tr td[colspan]::before {
+    display: none;
+  }
+}
+
+.config-page .config-panel-right {
+  min-height: 12rem;
+}
+
 .ticket-photo-preview {
   display: block;
   max-width: 100%;

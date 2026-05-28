@@ -117,7 +117,7 @@ export async function renderTickets(root) {
               placeholder="Buscar en la tabla…" autocomplete="off">
           </div>
           <div class="table-responsive cotizaciones-list-wrap">
-            <table class="table table-sm table-hover small mb-0">
+            <table class="table table-sm table-hover small mb-0 tickets-stack-table">
               <thead>
                 <tr>
                   <th>Inicio</th>
@@ -163,12 +163,12 @@ export async function renderTickets(root) {
               <label class="form-label" for="ticketReporteCliente">Reporte cliente</label>
               <textarea class="form-control form-control-sm" id="ticketReporteCliente" rows="4"></textarea>
             </div>
-            <div class="mb-2 d-none" id="ticketStatusGroup">
-              <label class="form-label" for="ticketStatus">Status</label>
-              <select class="form-select form-select-sm" id="ticketStatus">
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="FINALIZADO">Finalizado</option>
-              </select>
+            <div class="mb-2" id="ticketTotalPrecioGroup">
+              <label class="form-label" for="ticketTotalPrecio">Total precio</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Q</span>
+                <input type="number" class="form-control form-control-sm" id="ticketTotalPrecio" min="0" step="0.01">
+              </div>
             </div>
           </form>
           <div class="modal-footer py-2">
@@ -225,6 +225,10 @@ export async function renderTickets(root) {
               <textarea class="form-control form-control-sm" id="finalizarNotas" rows="3"></textarea>
             </div>
             <div class="mb-2">
+              <label class="form-label" for="finalizarInsumos">Insumos</label>
+              <textarea class="form-control form-control-sm" id="finalizarInsumos" rows="3"></textarea>
+            </div>
+            <div class="mb-2">
               <label class="form-label" for="finalizarFoto1">Foto 1</label>
               <input type="file" class="form-control form-control-sm" id="finalizarFoto1" accept="image/*">
             </div>
@@ -266,7 +270,7 @@ export async function renderTickets(root) {
         const days = daysElapsed(t.fecha_inicio);
         const clienteLabel = t.cliente_empresa || t.cliente_nombre || '—';
         const actionsCell = supervisor
-          ? `<td class="text-end text-nowrap">
+          ? `<td class="text-end text-nowrap ticket-row-actions" data-label="Acciones">
             <button type="button" class="btn btn-outline-secondary btn-sm btn-ticket-asignar" data-id="${t.id}" title="Asignar empleado">
               <i class="fa-solid fa-user"></i>
             </button>
@@ -283,11 +287,11 @@ export async function renderTickets(root) {
           : '';
         return `
         <tr>
-          <td class="text-nowrap">${escapeHtml(formatDate(t.fecha_inicio))}</td>
-          <td>${escapeHtml(empleadoLabel(t))}</td>
-          <td>${escapeHtml(clienteLabel)}</td>
-          <td class="ticket-reporte-cell">${escapeHtml(truncate(t.reporte_cliente))}</td>
-          <td><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
+          <td class="text-nowrap" data-label="Inicio">${escapeHtml(formatDate(t.fecha_inicio))}</td>
+          <td data-label="Empleado">${escapeHtml(empleadoLabel(t))}</td>
+          <td data-label="Cliente">${escapeHtml(clienteLabel)}</td>
+          <td class="ticket-reporte-cell" data-label="Reporte cliente">${escapeHtml(truncate(t.reporte_cliente))}</td>
+          <td data-label="Días"><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
           ${actionsCell}
         </tr>`;
       })
@@ -304,7 +308,6 @@ export async function renderTickets(root) {
     const empleadoSelect = document.getElementById('ticketEmpleado');
     const clienteSelect = document.getElementById('ticketCliente');
     const asignarEmpleadoSelect = document.getElementById('asignarTicketEmpleado');
-    const statusGroup = document.getElementById('ticketStatusGroup');
 
     async function loadSelects() {
       const [empleados, clientes] = await Promise.all([api.listEmpleados(true), api.listClientes()]);
@@ -329,11 +332,11 @@ export async function renderTickets(root) {
       document.getElementById('ticketId').value = '';
       document.getElementById('ticketModalLabel').textContent = 'Nuevo ticket';
       document.getElementById('ticketFechaInicio').value = today;
+      document.getElementById('ticketTotalPrecioGroup').classList.remove('d-none');
+      document.getElementById('ticketTotalPrecio').value = '';
       empleadoSelect.innerHTML =
         '<option value="">Sin asignar</option>' +
         empleadosActivos.map((e) => `<option value="${e.codigo}">${escapeHtml(e.nombre)}</option>`).join('');
-      statusGroup.classList.add('d-none');
-      document.getElementById('ticketStatus').value = 'PENDIENTE';
       ticketModal.show();
     }
 
@@ -344,8 +347,7 @@ export async function renderTickets(root) {
       empleadoSelect.value = ticket.codigo_empleado ? String(ticket.codigo_empleado) : '';
       document.getElementById('ticketCliente').value = String(ticket.codigo_cliente);
       document.getElementById('ticketReporteCliente').value = ticket.reporte_cliente || '';
-      document.getElementById('ticketStatus').value = ticket.status || 'PENDIENTE';
-      statusGroup.classList.remove('d-none');
+      document.getElementById('ticketTotalPrecioGroup').classList.add('d-none');
       ticketModal.show();
     }
 
@@ -364,6 +366,7 @@ export async function renderTickets(root) {
       document.getElementById('finalizarReporteTecnico').value = ticket.reporte_tecnico || '';
       document.getElementById('finalizarAccesos').value = ticket.accesos || '';
       document.getElementById('finalizarNotas').value = ticket.notas || '';
+      document.getElementById('finalizarInsumos').value = ticket.insumos || '';
       finalizarModal.show();
     }
 
@@ -432,8 +435,12 @@ export async function renderTickets(root) {
         codigo_empleado: empleadoVal ? Number(empleadoVal) : null,
         codigo_cliente: Number(document.getElementById('ticketCliente').value),
         reporte_cliente: document.getElementById('ticketReporteCliente').value.trim() || null,
-        status: id ? document.getElementById('ticketStatus').value : 'PENDIENTE',
       };
+      if (!id) {
+        body.status = 'PENDIENTE';
+        const totalVal = document.getElementById('ticketTotalPrecio').value.trim();
+        if (totalVal !== '') body.totalprecio = Number(totalVal);
+      }
 
       try {
         if (id) {
@@ -474,6 +481,7 @@ export async function renderTickets(root) {
           reporte_tecnico: document.getElementById('finalizarReporteTecnico').value.trim() || null,
           accesos: document.getElementById('finalizarAccesos').value.trim() || null,
           notas: document.getElementById('finalizarNotas').value.trim() || null,
+          insumos: document.getElementById('finalizarInsumos').value.trim() || null,
         };
         const f1 = await readOptionalPhoto('finalizarFoto1');
         const f2 = await readOptionalPhoto('finalizarFoto2');

@@ -345,6 +345,17 @@ function parseOptionalEmpleado(value) {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
+function parseOptionalTotalPrecio(value, errors) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const num = Number(value);
+  if (Number.isNaN(num) || num < 0) {
+    errors.push('Total precio debe ser un número mayor o igual a 0.');
+    return null;
+  }
+  return Math.round(num * 100) / 100;
+}
+
 function validateTicket(body, partial = false) {
   const errors = [];
   const codigoEmpleado =
@@ -358,6 +369,9 @@ function validateTicket(body, partial = false) {
   const accesos =
     body.accesos !== undefined ? optionalVarchar(body.accesos, 'Accesos', 255, errors) : undefined;
   const notas = body.notas !== undefined ? optionalText(body.notas) : undefined;
+  const insumos = body.insumos !== undefined ? optionalText(body.insumos) : undefined;
+  const totalprecio =
+    body.totalprecio !== undefined ? parseOptionalTotalPrecio(body.totalprecio, errors) : undefined;
   const status = body.status !== undefined ? String(body.status).trim().toUpperCase() : undefined;
   const foto1 = body.foto1 !== undefined ? body.foto1 || null : undefined;
   const foto2 = body.foto2 !== undefined ? body.foto2 || null : undefined;
@@ -405,6 +419,8 @@ function validateTicket(body, partial = false) {
       reporte_tecnico: reporteTecnico,
       accesos,
       notas,
+      insumos,
+      totalprecio,
       status: status !== undefined ? status : partial ? undefined : 'PENDIENTE',
       foto1,
       foto2,

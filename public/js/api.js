@@ -228,4 +228,8 @@ export function deleteTicket(id) {
 
 }
 
+export function deleteTicketPhotosInRange(start, end) {
+  return post('/tickets/delete-fotos', { start, end });
+}
+
 

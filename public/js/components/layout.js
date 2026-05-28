@@ -33,6 +33,7 @@ export function renderAppShell(activePage, pageTitle, extraHeaderHtml = '') {
     { id: 'archivo', label: 'Archivo', path: 'archivo', icon: 'fa-box-archive', supervisorOnly: true },
     { id: 'empleados', label: 'Empleados', path: 'empleados', icon: 'fa-user-group', supervisorOnly: true },
     { id: 'clientes', label: 'Clientes', path: 'clientes', icon: 'fa-building', supervisorOnly: true },
+    { id: 'config', label: 'Config', path: 'config', icon: 'fa-gear', supervisorOnly: true },
   ];
 
   const pages = isSupervisor()

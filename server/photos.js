@@ -56,8 +56,19 @@ function getFotosDir() {
   return FOTOS_DIR;
 }
 
+function deletePhotoFile(filename) {
+  if (!filename) return false;
+  ensureFotosDir();
+  const safe = sanitizeFilename(filename);
+  const filePath = path.join(FOTOS_DIR, safe);
+  if (!fs.existsSync(filePath)) return false;
+  fs.unlinkSync(filePath);
+  return true;
+}
+
 module.exports = {
   ensureFotosDir,
   saveTicketPhoto,
+  deletePhotoFile,
   getFotosDir,
 };

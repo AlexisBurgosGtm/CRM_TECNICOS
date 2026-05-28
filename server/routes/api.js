@@ -2,7 +2,7 @@ const express = require('express');
 const { query, queryOne, execute, toDateString } = require('../db');
 const { login, logout, requireAuth, requireSupervisor } = require('../auth');
 const { validateEmpleado, validateCliente, validateTicket, parseDateOnly } = require('../validators');
-const { saveTicketPhoto } = require('../photos');
+const { saveTicketPhoto, deletePhotoFile } = require('../photos');
 
 const router = express.Router();
 
@@ -381,8 +381,8 @@ const TICKET_CALENDAR_SELECT = `
 
 const TICKET_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
-         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.status,
-         t.foto1, t.foto2, t.foto3,
+         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.insumos, t.totalprecio,
+         t.status, t.foto1, t.foto2, t.foto3,
          emp.nombre AS empleado_nombre,
          c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre
   FROM tickets t
@@ -401,6 +401,8 @@ function mapTicketRow(row, includePhotos = false) {
     reporte_tecnico: row.reporte_tecnico,
     accesos: row.accesos,
     notas: row.notas,
+    insumos: row.insumos,
+    totalprecio: row.totalprecio != null ? Number(row.totalprecio) : null,
     status: row.status || 'PENDIENTE',
     empleado_nombre: row.empleado_nombre || 'Sin asignar',
     cliente_empresa: row.cliente_empresa,
@@ -479,8 +481,8 @@ router.post(
 
     const info = await execute(
       `INSERT INTO tickets (fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente,
-       reporte_cliente, reporte_tecnico, accesos, notas, status, foto1, foto2, foto3)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status, foto1, foto2, foto3)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         result.data.fecha_inicio,
         result.data.fecha_fin,
@@ -490,6 +492,8 @@ router.post(
         result.data.reporte_tecnico,
         result.data.accesos,
         result.data.notas,
+        result.data.insumos ?? null,
+        result.data.totalprecio ?? null,
         result.data.status,
         result.data.foto1,
         result.data.foto2,
@@ -512,7 +516,8 @@ router.post(
 
     const current = await queryOne(
       `SELECT fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente, reporte_cliente,
-              reporte_tecnico, accesos, notas, status, foto1, foto2, foto3 FROM tickets WHERE id = ?`,
+              reporte_tecnico, accesos, notas, insumos, totalprecio, status, foto1, foto2, foto3
+       FROM tickets WHERE id = ?`,
       [id]
     );
 
@@ -539,6 +544,9 @@ router.post(
           : current.reporte_tecnico,
       accesos: req.body.accesos !== undefined ? req.body.accesos : current.accesos,
       notas: req.body.notas !== undefined ? req.body.notas : current.notas,
+      insumos: req.body.insumos !== undefined ? req.body.insumos : current.insumos,
+      totalprecio:
+        req.body.totalprecio !== undefined ? req.body.totalprecio : current.totalprecio,
       status: req.body.status !== undefined ? req.body.status : current.status,
       foto1: req.body.foto1 !== undefined ? req.body.foto1 : current.foto1,
       foto2: req.body.foto2 !== undefined ? req.body.foto2 : current.foto2,
@@ -557,8 +565,8 @@ router.post(
 
     await execute(
       `UPDATE tickets SET fecha_inicio = ?, fecha_fin = ?, codigo_empleado = ?, codigo_cliente = ?,
-       reporte_cliente = ?, reporte_tecnico = ?, accesos = ?, notas = ?, status = ?,
-       foto1 = ?, foto2 = ?, foto3 = ?
+       reporte_cliente = ?, reporte_tecnico = ?, accesos = ?, notas = ?, insumos = ?,
+       totalprecio = ?, status = ?, foto1 = ?, foto2 = ?, foto3 = ?
        WHERE id = ?`,
       [
         result.data.fecha_inicio,
@@ -569,6 +577,8 @@ router.post(
         result.data.reporte_tecnico,
         result.data.accesos,
         result.data.notas,
+        result.data.insumos,
+        result.data.totalprecio,
         result.data.status,
         result.data.foto1,
         result.data.foto2,
@@ -611,6 +621,8 @@ router.post(
       req.body.accesos !== undefined ? String(req.body.accesos).trim() || null : undefined;
     const notas =
       req.body.notas !== undefined ? String(req.body.notas).trim() || null : undefined;
+    const insumos =
+      req.body.insumos !== undefined ? String(req.body.insumos).trim() || null : undefined;
 
     const foto1 =
       req.body.foto1 !== undefined
@@ -627,9 +639,9 @@ router.post(
 
     await execute(
       `UPDATE tickets SET status = 'FINALIZADO', fecha_fin = ?, reporte_tecnico = ?,
-       accesos = COALESCE(?, accesos), notas = COALESCE(?, notas),
+       accesos = COALESCE(?, accesos), notas = COALESCE(?, notas), insumos = COALESCE(?, insumos),
        foto1 = ?, foto2 = ?, foto3 = ? WHERE id = ?`,
-      [fechaFinParsed.iso, reporteTecnico, accesos, notas, foto1, foto2, foto3, id]
+      [fechaFinParsed.iso, reporteTecnico, accesos, notas, insumos, foto1, foto2, foto3, id]
     );
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
@@ -675,10 +687,54 @@ router.post(
     const rows = await query(
       `${TICKET_SELECT}
        WHERE t.fecha_inicio >= ? AND t.fecha_inicio <= ?
-       ORDER BY t.fecha_inicio DESC, t.id DESC`,
+       ORDER BY t.fecha_inicio ASC, t.id ASC`,
       [startDate, endDate]
     );
     res.json(rows.map((row) => mapTicketRow(row, true)));
+  })
+);
+
+router.post(
+  '/tickets/delete-fotos',
+  requireSupervisor,
+  asyncHandler(async (req, res) => {
+    const { start, end } = req.body || {};
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Las fechas inicial y final son obligatorias.' });
+    }
+    const startDate = String(start).slice(0, 10);
+    const endDate = String(end).slice(0, 10);
+    if (startDate > endDate) {
+      return res.status(400).json({ error: 'La fecha inicial no puede ser mayor que la final.' });
+    }
+
+    const rows = await query(
+      `SELECT id, foto1, foto2, foto3 FROM tickets
+       WHERE fecha_inicio >= ? AND fecha_inicio <= ?`,
+      [startDate, endDate]
+    );
+
+    let filesDeleted = 0;
+    for (const row of rows) {
+      for (const foto of [row.foto1, row.foto2, row.foto3]) {
+        if (foto && deletePhotoFile(foto)) filesDeleted += 1;
+      }
+    }
+
+    if (rows.length) {
+      const ids = rows.map((row) => row.id);
+      const placeholders = ids.map(() => '?').join(', ');
+      await execute(
+        `UPDATE tickets SET foto1 = NULL, foto2 = NULL, foto3 = NULL WHERE id IN (${placeholders})`,
+        ids
+      );
+    }
+
+    res.json({
+      ok: true,
+      tickets: rows.length,
+      filesDeleted,
+    });
   })
 );
 

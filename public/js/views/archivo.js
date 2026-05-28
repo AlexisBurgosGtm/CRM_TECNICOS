@@ -126,6 +126,7 @@ export async function renderArchivo(root) {
         <dt class="col-sm-3">Reporte técnico</dt><dd class="col-sm-9">${escapeHtml(ticket.reporte_tecnico || '—')}</dd>
         <dt class="col-sm-3">Accesos</dt><dd class="col-sm-9">${escapeHtml(ticket.accesos || '—')}</dd>
         <dt class="col-sm-3">Notas</dt><dd class="col-sm-9">${escapeHtml(ticket.notas || '—')}</dd>
+        <dt class="col-sm-3">Insumos</dt><dd class="col-sm-9">${escapeHtml(ticket.insumos || '—')}</dd>
       </dl>
       ${renderPhotoBlock('Foto 1', ticket.foto1)}
       ${renderPhotoBlock('Foto 2', ticket.foto2)}

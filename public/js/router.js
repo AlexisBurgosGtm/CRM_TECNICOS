@@ -6,6 +6,7 @@ import { renderEmployees } from './views/employees.js';
 import { renderClients } from './views/clients.js';
 import { renderTickets } from './views/tickets.js';
 import { renderArchivo } from './views/archivo.js';
+import { renderConfig } from './views/config.js';
 
 const routes = {
   login: { render: renderLogin, auth: false },
@@ -15,6 +16,7 @@ const routes = {
   archivo: { render: renderArchivo, auth: true },
   empleados: { render: renderEmployees, auth: true },
   clientes: { render: renderClients, auth: true },
+  config: { render: renderConfig, auth: true },
 };
 
 let currentRoute = null;
