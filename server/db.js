@@ -82,6 +82,16 @@ const SCHEMA_STATEMENTS = [
   `CREATE INDEX idx_tickets_status ON tickets(status)`,
   `CREATE INDEX idx_tickets_empleado ON tickets(codigo_empleado)`,
   `CREATE INDEX idx_tickets_cliente ON tickets(codigo_cliente)`,
+  `CREATE TABLE IF NOT EXISTS tickets_fotos (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    ID_TICKET INT NOT NULL,
+    FOTO1 LONGTEXT NULL,
+    FOTO2 LONGTEXT NULL,
+    FOTO3 LONGTEXT NULL,
+    UNIQUE KEY uk_tickets_fotos_ticket (ID_TICKET),
+    CONSTRAINT fk_tickets_fotos_ticket
+      FOREIGN KEY (ID_TICKET) REFERENCES tickets(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 async function ensureTicketSchemaUpdates() {
@@ -125,6 +135,28 @@ async function ensureTicketSchemaUpdates() {
   }
 }
 
+async function ensureTicketsFotosMigration() {
+  const tables = await query(
+    `SELECT TABLE_NAME FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tickets_fotos'`
+  );
+  if (!tables.length) return;
+
+  const legacyTickets = await query(
+    `SELECT t.id, t.foto1, t.foto2, t.foto3
+     FROM tickets t
+     WHERE (t.foto1 IS NOT NULL OR t.foto2 IS NOT NULL OR t.foto3 IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM tickets_fotos tf WHERE tf.ID_TICKET = t.id)`
+  );
+
+  for (const ticket of legacyTickets) {
+    await execute(
+      `INSERT INTO tickets_fotos (ID_TICKET, FOTO1, FOTO2, FOTO3) VALUES (?, ?, ?, ?)`,
+      [ticket.id, ticket.foto1, ticket.foto2, ticket.foto3]
+    );
+  }
+}
+
 async function dropLegacyTables() {
   await query('DROP TABLE IF EXISTS eventos');
   await query('DROP TABLE IF EXISTS cotizaciones');
@@ -141,6 +173,7 @@ async function initDb() {
 
   await dropLegacyTables();
   await ensureTicketSchemaUpdates();
+  await ensureTicketsFotosMigration();
 
   const countRow = await queryOne('SELECT COUNT(*) AS total FROM empleados');
   if (Number(countRow.total) === 0) {

@@ -320,22 +320,31 @@ function parseOptionalDateOnly(value, fieldName) {
   return parseDateOnly(value, fieldName);
 }
 
-function optionalText(value) {
+function sanitizeMysqlText(value) {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  const text = String(value).trim();
+  let text = String(value).trim();
+  text = text.replace(/\0/g, '');
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   return text || null;
+}
+
+function optionalText(value) {
+  if (value === undefined) return undefined;
+  return sanitizeMysqlText(value);
 }
 
 function optionalVarchar(value, fieldName, maxLen, errors) {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
-  const text = String(value).trim();
+  const text = sanitizeMysqlText(value);
+  if (!text) return null;
   if (text.length > maxLen) {
     errors.push(`${fieldName} no puede superar ${maxLen} caracteres.`);
     return text.slice(0, maxLen);
   }
-  return text || null;
+  return text;
 }
 
 function parseOptionalEmpleado(value) {
@@ -373,9 +382,6 @@ function validateTicket(body, partial = false) {
   const totalprecio =
     body.totalprecio !== undefined ? parseOptionalTotalPrecio(body.totalprecio, errors) : undefined;
   const status = body.status !== undefined ? String(body.status).trim().toUpperCase() : undefined;
-  const foto1 = body.foto1 !== undefined ? body.foto1 || null : undefined;
-  const foto2 = body.foto2 !== undefined ? body.foto2 || null : undefined;
-  const foto3 = body.foto3 !== undefined ? body.foto3 || null : undefined;
 
   let fechaInicioParsed;
   let fechaFinParsed;
@@ -422,9 +428,6 @@ function validateTicket(body, partial = false) {
       insumos,
       totalprecio,
       status: status !== undefined ? status : partial ? undefined : 'PENDIENTE',
-      foto1,
-      foto2,
-      foto3,
     },
   };
 }
@@ -442,4 +445,5 @@ module.exports = {
   validateCotizacion,
   validateTicket,
   parseDateOnly,
+  sanitizeMysqlText,
 };

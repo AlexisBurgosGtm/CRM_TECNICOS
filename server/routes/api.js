@@ -1,8 +1,15 @@
 const express = require('express');
 const { query, queryOne, execute, toDateString } = require('../db');
 const { login, logout, requireAuth, requireSupervisor } = require('../auth');
-const { validateEmpleado, validateCliente, validateTicket, parseDateOnly } = require('../validators');
-const { saveTicketPhoto, deletePhotoFile } = require('../photos');
+const {
+  validateEmpleado,
+  validateCliente,
+  validateTicket,
+  parseDateOnly,
+  sanitizeMysqlText,
+} = require('../validators');
+const { deletePhotoFile } = require('../photos');
+const { loadTicketPhotos, saveTicketPhotos } = require('../ticket-photos');
 
 const router = express.Router();
 
@@ -330,7 +337,7 @@ router.post(
        ORDER BY t.fecha_inicio ASC, t.id ASC`,
       [endDate, startDate]
     );
-    const tickets = ticketRows.map((row) => mapTicketRow(row));
+    const tickets = await Promise.all(ticketRows.map((row) => mapTicketRow(row)));
 
     const empleados = await query(
       `SELECT codigo, nombre, telefono, tipo, estado, color FROM empleados
@@ -390,7 +397,7 @@ const TICKET_SELECT = `
   JOIN clientes c ON c.codigo = t.codigo_cliente
 `;
 
-function mapTicketRow(row, includePhotos = false) {
+async function mapTicketRow(row, includePhotos = false) {
   const data = {
     id: row.id,
     fecha_inicio: toDateString(row.fecha_inicio),
@@ -409,9 +416,10 @@ function mapTicketRow(row, includePhotos = false) {
     cliente_nombre: row.cliente_nombre,
   };
   if (includePhotos) {
-    data.foto1 = row.foto1;
-    data.foto2 = row.foto2;
-    data.foto3 = row.foto3;
+    const photos = await loadTicketPhotos(row.id, row);
+    data.foto1 = photos.foto1;
+    data.foto2 = photos.foto2;
+    data.foto3 = photos.foto3;
   }
   return data;
 }
@@ -427,7 +435,7 @@ router.post(
     }
     sql += ' ORDER BY t.fecha_inicio ASC, t.id ASC';
     const rows = await query(sql, params);
-    res.json(rows.map((row) => mapTicketRow(row)));
+    res.json(await Promise.all(rows.map((row) => mapTicketRow(row))));
   })
 );
 
@@ -461,7 +469,7 @@ router.post(
     if (!canAccessTicket(row, req.auth)) {
       return res.status(403).json({ error: 'No autorizado.' });
     }
-    res.json(mapTicketRow(row, true));
+    res.json(await mapTicketRow(row, true));
   })
 );
 
@@ -481,8 +489,8 @@ router.post(
 
     const info = await execute(
       `INSERT INTO tickets (fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente,
-       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status, foto1, foto2, foto3)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         result.data.fecha_inicio,
         result.data.fecha_fin,
@@ -495,14 +503,11 @@ router.post(
         result.data.insumos ?? null,
         result.data.totalprecio ?? null,
         result.data.status,
-        result.data.foto1,
-        result.data.foto2,
-        result.data.foto3,
       ]
     );
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [info.insertId]);
-    res.status(201).json(mapTicketRow(row, true));
+    res.status(201).json(await mapTicketRow(row, true));
   })
 );
 
@@ -516,7 +521,7 @@ router.post(
 
     const current = await queryOne(
       `SELECT fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente, reporte_cliente,
-              reporte_tecnico, accesos, notas, insumos, totalprecio, status, foto1, foto2, foto3
+              reporte_tecnico, accesos, notas, insumos, totalprecio, status
        FROM tickets WHERE id = ?`,
       [id]
     );
@@ -548,9 +553,6 @@ router.post(
       totalprecio:
         req.body.totalprecio !== undefined ? req.body.totalprecio : current.totalprecio,
       status: req.body.status !== undefined ? req.body.status : current.status,
-      foto1: req.body.foto1 !== undefined ? req.body.foto1 : current.foto1,
-      foto2: req.body.foto2 !== undefined ? req.body.foto2 : current.foto2,
-      foto3: req.body.foto3 !== undefined ? req.body.foto3 : current.foto3,
     };
 
     const result = validateTicket(merged);
@@ -566,7 +568,7 @@ router.post(
     await execute(
       `UPDATE tickets SET fecha_inicio = ?, fecha_fin = ?, codigo_empleado = ?, codigo_cliente = ?,
        reporte_cliente = ?, reporte_tecnico = ?, accesos = ?, notas = ?, insumos = ?,
-       totalprecio = ?, status = ?, foto1 = ?, foto2 = ?, foto3 = ?
+       totalprecio = ?, status = ?
        WHERE id = ?`,
       [
         result.data.fecha_inicio,
@@ -580,15 +582,12 @@ router.post(
         result.data.insumos,
         result.data.totalprecio,
         result.data.status,
-        result.data.foto1,
-        result.data.foto2,
-        result.data.foto3,
         id,
       ]
     );
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
-    res.json(mapTicketRow(row, true));
+    res.json(await mapTicketRow(row, true));
   })
 );
 
@@ -602,6 +601,7 @@ router.post(
        FROM tickets WHERE id = ?`,
       [id]
     );
+    const existingPhotos = await loadTicketPhotos(id, existing);
     if (!existing) return res.status(404).json({ error: 'Ticket no encontrado.' });
     if (!canAccessTicket(existing, req.auth)) {
       return res.status(403).json({ error: 'No autorizado.' });
@@ -619,14 +619,13 @@ router.post(
 
     const reporteTecnico =
       req.body.reporte_tecnico !== undefined
-        ? String(req.body.reporte_tecnico).trim() || null
+        ? sanitizeMysqlText(req.body.reporte_tecnico)
         : existing.reporte_tecnico;
     const accesos =
-      req.body.accesos !== undefined ? String(req.body.accesos).trim() || null : undefined;
-    const notas =
-      req.body.notas !== undefined ? String(req.body.notas).trim() || null : undefined;
+      req.body.accesos !== undefined ? sanitizeMysqlText(req.body.accesos) : undefined;
+    const notas = req.body.notas !== undefined ? sanitizeMysqlText(req.body.notas) : undefined;
     const insumos =
-      req.body.insumos !== undefined ? String(req.body.insumos).trim() || null : undefined;
+      req.body.insumos !== undefined ? sanitizeMysqlText(req.body.insumos) : undefined;
 
     let totalprecio = existing.totalprecio;
     if (req.body.totalprecio !== undefined) {
@@ -641,28 +640,25 @@ router.post(
       }
     }
 
-    const foto1 =
-      req.body.foto1 !== undefined
-        ? saveTicketPhoto(req.body.foto1, id, 1)
-        : existing.foto1;
-    const foto2 =
-      req.body.foto2 !== undefined
-        ? saveTicketPhoto(req.body.foto2, id, 2)
-        : existing.foto2;
-    const foto3 =
-      req.body.foto3 !== undefined
-        ? saveTicketPhoto(req.body.foto3, id, 3)
-        : existing.foto3;
-
     await execute(
       `UPDATE tickets SET status = 'FINALIZADO', fecha_fin = ?, reporte_tecnico = ?,
        accesos = COALESCE(?, accesos), notas = COALESCE(?, notas), insumos = COALESCE(?, insumos),
-       totalprecio = ?, foto1 = ?, foto2 = ?, foto3 = ? WHERE id = ?`,
-      [fechaFinParsed.iso, reporteTecnico, accesos, notas, insumos, totalprecio, foto1, foto2, foto3, id]
+       totalprecio = ? WHERE id = ?`,
+      [fechaFinParsed.iso, reporteTecnico, accesos, notas, insumos, totalprecio, id]
+    );
+
+    await saveTicketPhotos(
+      id,
+      {
+        foto1: req.body.foto1,
+        foto2: req.body.foto2,
+        foto3: req.body.foto3,
+      },
+      existingPhotos
     );
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
-    res.json(mapTicketRow(row, true));
+    res.json(await mapTicketRow(row, true));
   })
 );
 
@@ -683,7 +679,7 @@ router.post(
 
     await execute('UPDATE tickets SET codigo_empleado = ? WHERE id = ?', [codigoEmpleado, id]);
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
-    res.json(mapTicketRow(row, true));
+    res.json(await mapTicketRow(row, true));
   })
 );
 
@@ -707,7 +703,7 @@ router.post(
        ORDER BY t.fecha_inicio ASC, t.id ASC`,
       [startDate, endDate]
     );
-    res.json(rows.map((row) => mapTicketRow(row, true)));
+    res.json(await Promise.all(rows.map((row) => mapTicketRow(row, true))));
   })
 );
 
@@ -725,31 +721,46 @@ router.post(
       return res.status(400).json({ error: 'La fecha inicial no puede ser mayor que la final.' });
     }
 
-    const rows = await query(
-      `SELECT id, foto1, foto2, foto3 FROM tickets
-       WHERE fecha_inicio >= ? AND fecha_inicio <= ?`,
+    const fotoRows = await query(
+      `SELECT t.id AS id_ticket, tf.FOTO1, tf.FOTO2, tf.FOTO3, t.foto1, t.foto2, t.foto3
+       FROM tickets t
+       LEFT JOIN tickets_fotos tf ON tf.ID_TICKET = t.id
+       WHERE t.fecha_inicio >= ? AND t.fecha_inicio <= ?
+         AND (tf.FOTO1 IS NOT NULL OR tf.FOTO2 IS NOT NULL OR tf.FOTO3 IS NOT NULL
+              OR t.foto1 IS NOT NULL OR t.foto2 IS NOT NULL OR t.foto3 IS NOT NULL)`,
       [startDate, endDate]
     );
 
+    const ticketIds = new Set();
     let filesDeleted = 0;
-    for (const row of rows) {
-      for (const foto of [row.foto1, row.foto2, row.foto3]) {
-        if (foto && deletePhotoFile(foto)) filesDeleted += 1;
+    const filesSeen = new Set();
+
+    for (const row of fotoRows) {
+      ticketIds.add(row.id_ticket);
+      const filenames = [
+        row.FOTO1,
+        row.FOTO2,
+        row.FOTO3,
+        row.foto1,
+        row.foto2,
+        row.foto3,
+      ].filter(Boolean);
+      for (const filename of filenames) {
+        if (filesSeen.has(filename)) continue;
+        filesSeen.add(filename);
+        if (deletePhotoFile(filename)) filesDeleted += 1;
       }
     }
 
-    if (rows.length) {
-      const ids = rows.map((row) => row.id);
+    if (ticketIds.size) {
+      const ids = [...ticketIds];
       const placeholders = ids.map(() => '?').join(', ');
-      await execute(
-        `UPDATE tickets SET foto1 = NULL, foto2 = NULL, foto3 = NULL WHERE id IN (${placeholders})`,
-        ids
-      );
+      await execute(`DELETE FROM tickets_fotos WHERE ID_TICKET IN (${placeholders})`, ids);
     }
 
     res.json({
       ok: true,
-      tickets: rows.length,
+      tickets: ticketIds.size,
       filesDeleted,
     });
   })
