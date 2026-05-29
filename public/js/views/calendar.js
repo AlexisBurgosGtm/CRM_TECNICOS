@@ -133,7 +133,6 @@ export async function renderCalendar(root) {
   }
 
   function openTicketModal(ticket) {
-    const cliente = ticket.cliente_empresa || ticket.cliente_nombre || '—';
     const estatusLabel = ticket.estatus === 'realizado' ? 'Finalizado' : 'Pendiente';
     document.getElementById('ticketCalModalLabel').textContent = `Ticket #${ticket.id}`;
     document.getElementById('ticketCalModalBody').innerHTML = `
@@ -142,8 +141,12 @@ export async function renderCalendar(root) {
         <dd class="col-sm-8">${escapeHtml(formatDate(ticket.inicio))}</dd>
         <dt class="col-sm-4">Empleado</dt>
         <dd class="col-sm-8">${escapeHtml(ticket.empleado_nombre)}</dd>
-        <dt class="col-sm-4">Cliente</dt>
-        <dd class="col-sm-8">${escapeHtml(cliente)}</dd>
+        <dt class="col-sm-4">Nombre empresa</dt>
+        <dd class="col-sm-8">${escapeHtml(ticket.cliente_empresa || '—')}</dd>
+        <dt class="col-sm-4">Nombre cliente</dt>
+        <dd class="col-sm-8">${escapeHtml(ticket.cliente_nombre || '—')}</dd>
+        <dt class="col-sm-4">Teléfono cliente</dt>
+        <dd class="col-sm-8">${escapeHtml(ticket.cliente_telefono || '—')}</dd>
         <dt class="col-sm-4">Estatus</dt>
         <dd class="col-sm-8">${escapeHtml(estatusLabel)}</dd>
         <dt class="col-sm-4">Reporte cliente</dt>

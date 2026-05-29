@@ -211,6 +211,21 @@ body {
   color: #fff !important;
 }
 
+.ticket-prioridad-alta {
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.ticket-prioridad-media {
+  background-color: #eab308 !important;
+  color: #000 !important;
+}
+
+.ticket-prioridad-baja {
+  background-color: #38bdf8 !important;
+  color: #000 !important;
+}
+
 @media (max-width: 767.98px) {
   .tickets-stack-table thead {
     display: none;
@@ -489,6 +504,11 @@ main {
 .ticket-reporte-cell {
   max-width: 220px;
   white-space: normal;
+  word-break: break-word;
+}
+
+.ticket-reporte-full {
+  white-space: pre-wrap;
   word-break: break-word;
 }
 

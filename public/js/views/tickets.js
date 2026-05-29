@@ -3,6 +3,7 @@ import { updateAppShell, bindLogout } from '../components/layout.js';
 import { isSupervisor } from '../auth.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
 import { formatDate } from '../format.js';
+import { renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -50,6 +51,20 @@ function daysLabel(days) {
   return `${days} día${days === 1 ? '' : 's'}`;
 }
 
+function prioridadBadgeClass(prioridad) {
+  const value = String(prioridad || 'MEDIA').toUpperCase();
+  if (value === 'ALTA') return 'ticket-prioridad-alta';
+  if (value === 'BAJA') return 'ticket-prioridad-baja';
+  return 'ticket-prioridad-media';
+}
+
+function prioridadLabel(prioridad) {
+  const value = String(prioridad || 'MEDIA').toUpperCase();
+  if (value === 'ALTA') return 'Alta';
+  if (value === 'BAJA') return 'Baja';
+  return 'Media';
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -76,6 +91,7 @@ function matchesSearch(ticket, query) {
     ticket.cliente_empresa,
     ticket.cliente_nombre,
     ticket.reporte_cliente,
+    ticket.prioridad,
   ]
     .map((v) => String(v || '').toLowerCase())
     .join(' ');
@@ -124,12 +140,13 @@ export async function renderTickets(root) {
                   <th>Empleado</th>
                   <th>Cliente</th>
                   <th>Reporte cliente</th>
+                  <th>Prioridad</th>
                   <th>Días</th>
                   <th class="text-end">Acciones</th>
                 </tr>
               </thead>
               <tbody id="ticketsTableBody">
-                <tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr>
+                <tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr>
               </tbody>
             </table>
           </div>
@@ -158,6 +175,14 @@ export async function renderTickets(root) {
             <div class="mb-2">
               <label class="form-label" for="ticketCliente">Cliente</label>
               <select class="form-select form-select-sm" id="ticketCliente" required></select>
+            </div>
+            <div class="mb-2" id="ticketPrioridadGroup">
+              <label class="form-label" for="ticketPrioridad">Prioridad</label>
+              <select class="form-select form-select-sm" id="ticketPrioridad" required>
+                <option value="ALTA">Alta</option>
+                <option value="MEDIA" selected>Media</option>
+                <option value="BAJA">Baja</option>
+              </select>
             </div>
             <div class="mb-2">
               <label class="form-label" for="ticketReporteCliente">Reporte cliente</label>
@@ -255,13 +280,56 @@ export async function renderTickets(root) {
         </div>
       </div>
     </div>
+    <div class="modal fade" id="ticketsDetailModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content small">
+          <div class="modal-header modal-header-app py-2">
+            <h5 class="modal-title" id="ticketsDetailModalLabel">Detalle del ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body py-2" id="ticketsDetailModalBody"></div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 
   await bindLogout();
 
   const tableBody = document.getElementById('ticketsTableBody');
-  const colSpan = 6;
+  const colSpan = 7;
   let bindSupervisorRowActions = () => {};
+  const detailModal = new bootstrap.Modal(document.getElementById('ticketsDetailModal'));
+
+  function detailButtonHtml(id) {
+    return `<button type="button" class="btn btn-outline-info btn-sm btn-ticket-detalle" data-id="${id}" title="Ver detalle">
+              <i class="fa-solid fa-eye"></i>
+            </button>`;
+  }
+
+  function openDetailModal(ticket) {
+    document.getElementById('ticketsDetailModalLabel').textContent = `Ticket #${ticket.id}`;
+    const body = document.getElementById('ticketsDetailModalBody');
+    body.innerHTML = renderTicketDetailHtml(ticket);
+    bindPhotoZoom(body);
+    detailModal.show();
+  }
+
+  function bindDetailActions() {
+    document.querySelectorAll('.btn-ticket-detalle').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.dataset.id);
+        try {
+          const ticket = await api.getTicket(id);
+          openDetailModal(ticket);
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
+    });
+  }
 
   function renderTable() {
     const visible = tickets.filter((t) => matchesSearch(t, searchQuery));
@@ -284,6 +352,7 @@ export async function renderTickets(root) {
             <button type="button" class="btn btn-outline-primary btn-sm btn-ticket-edit" data-id="${t.id}" title="Editar">
               <i class="fa-solid fa-pen"></i>
             </button>
+            ${detailButtonHtml(t.id)}
             <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
               <i class="fa-solid fa-check me-1"></i>Finalizar
             </button>
@@ -292,6 +361,7 @@ export async function renderTickets(root) {
             </button>
           </td>`
           : `<td class="text-end text-nowrap ticket-row-actions" data-label="Acciones">
+            ${detailButtonHtml(t.id)}
             <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
               <i class="fa-solid fa-check me-1"></i>Finalizar
             </button>
@@ -302,12 +372,14 @@ export async function renderTickets(root) {
           <td data-label="Empleado">${escapeHtml(empleadoLabel(t))}</td>
           <td data-label="Cliente">${escapeHtml(clienteLabel)}</td>
           <td class="ticket-reporte-cell" data-label="Reporte cliente">${escapeHtml(truncate(t.reporte_cliente))}</td>
+          <td data-label="Prioridad"><span class="badge ${prioridadBadgeClass(t.prioridad)}">${escapeHtml(prioridadLabel(t.prioridad))}</span></td>
           <td data-label="Días"><span class="badge ${daysBadgeClass(days)}">${daysLabel(days)}</span></td>
           ${actionsCell}
         </tr>`;
       })
       .join('');
 
+    bindDetailActions();
     bindFinalizarActions();
     if (supervisor) bindSupervisorRowActions();
   }
@@ -404,6 +476,8 @@ export async function renderTickets(root) {
       document.getElementById('ticketModalLabel').textContent = 'Nuevo ticket';
       document.getElementById('ticketFechaInicio').value = today;
       document.getElementById('ticketTotalPrecioGroup').classList.remove('d-none');
+      document.getElementById('ticketPrioridadGroup').classList.remove('d-none');
+      document.getElementById('ticketPrioridad').value = 'MEDIA';
       document.getElementById('ticketTotalPrecio').value = '';
       empleadoSelect.innerHTML =
         '<option value="">Sin asignar</option>' +
@@ -419,6 +493,7 @@ export async function renderTickets(root) {
       document.getElementById('ticketCliente').value = String(ticket.codigo_cliente);
       document.getElementById('ticketReporteCliente').value = ticket.reporte_cliente || '';
       document.getElementById('ticketTotalPrecioGroup').classList.add('d-none');
+      document.getElementById('ticketPrioridadGroup').classList.add('d-none');
       ticketModal.show();
     }
 
@@ -485,6 +560,7 @@ export async function renderTickets(root) {
       };
       if (!id) {
         body.status = 'PENDIENTE';
+        body.prioridad = document.getElementById('ticketPrioridad').value;
         const totalVal = document.getElementById('ticketTotalPrecio').value.trim();
         if (totalVal !== '') body.totalprecio = Number(totalVal);
       }

@@ -67,6 +67,7 @@ function mapTicketToCalendarEvent(row) {
     fin: fechaFin,
     cliente_empresa: row.cliente_empresa,
     cliente_nombre: row.cliente_nombre,
+    cliente_telefono: row.cliente_telefono,
     reporte_cliente: row.reporte_cliente,
     accesos: row.accesos,
     notas: row.notas,
@@ -213,7 +214,7 @@ router.post(
   requireSupervisor,
   asyncHandler(async (req, res) => {
     const rows = await query(
-      `SELECT codigo, nombre_empresa, nombre_cliente, direccion, latitud, longitud
+      `SELECT codigo, nombre_empresa, nombre_cliente, telefono, direccion, latitud, longitud
        FROM clientes ORDER BY nombre_empresa, nombre_cliente`
     );
     res.json(rows);
@@ -226,7 +227,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const codigo = Number(req.body?.codigo);
     const row = await queryOne(
-      `SELECT codigo, nombre_empresa, nombre_cliente, direccion, latitud, longitud
+      `SELECT codigo, nombre_empresa, nombre_cliente, telefono, direccion, latitud, longitud
        FROM clientes WHERE codigo = ?`,
       [codigo]
     );
@@ -243,11 +244,12 @@ router.post(
     if (!result.valid) return res.status(400).json({ error: result.errors.join(' ') });
 
     const info = await execute(
-      `INSERT INTO clientes (nombre_empresa, nombre_cliente, direccion, latitud, longitud)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO clientes (nombre_empresa, nombre_cliente, telefono, direccion, latitud, longitud)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         result.data.nombre_empresa,
         result.data.nombre_cliente,
+        result.data.telefono,
         result.data.direccion,
         result.data.latitud,
         result.data.longitud,
@@ -255,7 +257,7 @@ router.post(
     );
 
     const row = await queryOne(
-      `SELECT codigo, nombre_empresa, nombre_cliente, direccion, latitud, longitud
+      `SELECT codigo, nombre_empresa, nombre_cliente, telefono, direccion, latitud, longitud
        FROM clientes WHERE codigo = ?`,
       [info.insertId]
     );
@@ -275,11 +277,12 @@ router.post(
     if (!result.valid) return res.status(400).json({ error: result.errors.join(' ') });
 
     await execute(
-      `UPDATE clientes SET nombre_empresa = ?, nombre_cliente = ?, direccion = ?, latitud = ?, longitud = ?
+      `UPDATE clientes SET nombre_empresa = ?, nombre_cliente = ?, telefono = ?, direccion = ?, latitud = ?, longitud = ?
        WHERE codigo = ?`,
       [
         result.data.nombre_empresa,
         result.data.nombre_cliente,
+        result.data.telefono,
         result.data.direccion,
         result.data.latitud,
         result.data.longitud,
@@ -288,7 +291,7 @@ router.post(
     );
 
     const row = await queryOne(
-      `SELECT codigo, nombre_empresa, nombre_cliente, direccion, latitud, longitud
+      `SELECT codigo, nombre_empresa, nombre_cliente, telefono, direccion, latitud, longitud
        FROM clientes WHERE codigo = ?`,
       [codigo]
     );
@@ -368,9 +371,10 @@ router.post(
 
 const TICKET_LIST_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
-         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.totalprecio, t.status,
+         t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.totalprecio, t.status, t.prioridad,
          emp.nombre AS empleado_nombre,
-         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre
+         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
+         c.telefono AS cliente_telefono
   FROM tickets t
   LEFT JOIN empleados emp ON emp.codigo = t.codigo_empleado
   JOIN clientes c ON c.codigo = t.codigo_cliente
@@ -378,9 +382,10 @@ const TICKET_LIST_SELECT = `
 
 const TICKET_CALENDAR_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
-         t.reporte_cliente, t.accesos, t.notas, t.status,
+         t.reporte_cliente, t.accesos, t.notas, t.status, t.prioridad,
          emp.nombre AS empleado_nombre, emp.color AS empleado_color,
-         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre
+         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
+         c.telefono AS cliente_telefono
   FROM tickets t
   LEFT JOIN empleados emp ON emp.codigo = t.codigo_empleado
   JOIN clientes c ON c.codigo = t.codigo_cliente
@@ -389,9 +394,10 @@ const TICKET_CALENDAR_SELECT = `
 const TICKET_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
          t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.insumos, t.totalprecio,
-         t.status, t.foto1, t.foto2, t.foto3,
+         t.status, t.prioridad, t.foto1, t.foto2, t.foto3,
          emp.nombre AS empleado_nombre,
-         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre
+         c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
+         c.telefono AS cliente_telefono
   FROM tickets t
   LEFT JOIN empleados emp ON emp.codigo = t.codigo_empleado
   JOIN clientes c ON c.codigo = t.codigo_cliente
@@ -411,9 +417,11 @@ async function mapTicketRow(row, includePhotos = false) {
     insumos: row.insumos,
     totalprecio: row.totalprecio != null ? Number(row.totalprecio) : null,
     status: row.status || 'PENDIENTE',
+    prioridad: row.prioridad || 'MEDIA',
     empleado_nombre: row.empleado_nombre || 'Sin asignar',
     cliente_empresa: row.cliente_empresa,
     cliente_nombre: row.cliente_nombre,
+    cliente_telefono: row.cliente_telefono,
   };
   if (includePhotos) {
     const photos = await loadTicketPhotos(row.id, row);
@@ -489,8 +497,8 @@ router.post(
 
     const info = await execute(
       `INSERT INTO tickets (fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente,
-       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         result.data.fecha_inicio,
         result.data.fecha_fin,
@@ -503,6 +511,7 @@ router.post(
         result.data.insumos ?? null,
         result.data.totalprecio ?? null,
         result.data.status,
+        result.data.prioridad,
       ]
     );
 
@@ -521,7 +530,7 @@ router.post(
 
     const current = await queryOne(
       `SELECT fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente, reporte_cliente,
-              reporte_tecnico, accesos, notas, insumos, totalprecio, status
+              reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad
        FROM tickets WHERE id = ?`,
       [id]
     );
@@ -553,6 +562,7 @@ router.post(
       totalprecio:
         req.body.totalprecio !== undefined ? req.body.totalprecio : current.totalprecio,
       status: req.body.status !== undefined ? req.body.status : current.status,
+      prioridad: req.body.prioridad !== undefined ? req.body.prioridad : current.prioridad,
     };
 
     const result = validateTicket(merged);
@@ -568,7 +578,7 @@ router.post(
     await execute(
       `UPDATE tickets SET fecha_inicio = ?, fecha_fin = ?, codigo_empleado = ?, codigo_cliente = ?,
        reporte_cliente = ?, reporte_tecnico = ?, accesos = ?, notas = ?, insumos = ?,
-       totalprecio = ?, status = ?
+       totalprecio = ?, status = ?, prioridad = ?
        WHERE id = ?`,
       [
         result.data.fecha_inicio,
@@ -582,6 +592,7 @@ router.post(
         result.data.insumos,
         result.data.totalprecio,
         result.data.status,
+        result.data.prioridad,
         id,
       ]
     );

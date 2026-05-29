@@ -11,6 +11,25 @@ function photoUrl(filename) {
   return `/FOTOS/${encodeURIComponent(filename)}`;
 }
 
+function prioridadBadgeClass(prioridad) {
+  const value = String(prioridad || 'MEDIA').toUpperCase();
+  if (value === 'ALTA') return 'ticket-prioridad-alta';
+  if (value === 'BAJA') return 'ticket-prioridad-baja';
+  return 'ticket-prioridad-media';
+}
+
+function prioridadLabel(prioridad) {
+  const value = String(prioridad || 'MEDIA').toUpperCase();
+  if (value === 'ALTA') return 'Alta';
+  if (value === 'BAJA') return 'Baja';
+  return 'Media';
+}
+
+export function prioridadBadgeHtml(prioridad) {
+  const label = prioridadLabel(prioridad);
+  return `<span class="badge ${prioridadBadgeClass(prioridad)}">${escapeHtml(label)}</span>`;
+}
+
 export function statusBadge(status) {
   if (status === 'FINALIZADO') {
     return '<span class="badge badge-estatus-realizado">Finalizado</span>';
@@ -39,12 +58,15 @@ export function renderTicketDetailHtml(ticket) {
       <dt class="col-sm-3">Fecha inicio</dt><dd class="col-sm-9">${escapeHtml(formatDate(ticket.fecha_inicio))}</dd>
       <dt class="col-sm-3">Fecha fin</dt><dd class="col-sm-9">${escapeHtml(formatDate(ticket.fecha_fin))}</dd>
       <dt class="col-sm-3">Empleado</dt><dd class="col-sm-9">${escapeHtml(ticket.empleado_nombre || 'Sin asignar')}</dd>
-      <dt class="col-sm-3">Cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_empresa || ticket.cliente_nombre || '—')}</dd>
+      <dt class="col-sm-3">Nombre empresa</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_empresa || '—')}</dd>
+      <dt class="col-sm-3">Nombre cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_nombre || '—')}</dd>
+      <dt class="col-sm-3">Teléfono cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_telefono || '—')}</dd>
       <dt class="col-sm-3">Status</dt><dd class="col-sm-9">${statusBadge(ticket.status)}</dd>
+      <dt class="col-sm-3">Prioridad</dt><dd class="col-sm-9">${prioridadBadgeHtml(ticket.prioridad)}</dd>
       <dt class="col-sm-3">Importe</dt><dd class="col-sm-9">${
         ticket.totalprecio != null ? escapeHtml(formatImporte(ticket.totalprecio)) : '—'
       }</dd>
-      <dt class="col-sm-3">Reporte cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.reporte_cliente || '—')}</dd>
+      <dt class="col-sm-3">Reporte cliente</dt><dd class="col-sm-9 ticket-reporte-full">${escapeHtml(ticket.reporte_cliente || '—')}</dd>
       <dt class="col-sm-3">Reporte técnico</dt><dd class="col-sm-9">${escapeHtml(ticket.reporte_tecnico || '—')}</dd>
       <dt class="col-sm-3">Accesos</dt><dd class="col-sm-9">${escapeHtml(ticket.accesos || '—')}</dd>
       <dt class="col-sm-3">Notas</dt><dd class="col-sm-9">${escapeHtml(ticket.notas || '—')}</dd>

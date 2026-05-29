@@ -55,6 +55,7 @@ const SCHEMA_STATEMENTS = [
     codigo INT AUTO_INCREMENT PRIMARY KEY,
     nombre_empresa VARCHAR(255) NOT NULL,
     nombre_cliente VARCHAR(255) NOT NULL,
+    telefono VARCHAR(8) NULL,
     direccion VARCHAR(500) NOT NULL,
     latitud DOUBLE NULL,
     longitud DOUBLE NULL
@@ -72,6 +73,7 @@ const SCHEMA_STATEMENTS = [
     insumos LONGTEXT NULL,
     totalprecio DECIMAL(12, 2) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+    prioridad VARCHAR(10) NOT NULL DEFAULT 'MEDIA',
     foto1 VARCHAR(255) NULL,
     foto2 VARCHAR(255) NULL,
     foto3 VARCHAR(255) NULL,
@@ -113,6 +115,11 @@ async function ensureTicketSchemaUpdates() {
   if (!byName.totalprecio) {
     await query('ALTER TABLE tickets ADD COLUMN totalprecio DECIMAL(12, 2) NULL');
   }
+  if (!byName.prioridad) {
+    await query(
+      `ALTER TABLE tickets ADD COLUMN prioridad VARCHAR(10) NOT NULL DEFAULT 'MEDIA'`
+    );
+  }
 
   if (byName.codigo_empleado && byName.codigo_empleado.Null === 'NO') {
     try {
@@ -132,6 +139,14 @@ async function ensureTicketSchemaUpdates() {
     if (col.Type.includes('longtext') || col.Type.includes('text')) {
       await query(`ALTER TABLE tickets MODIFY COLUMN ${col.Field} VARCHAR(255) NULL`);
     }
+  }
+}
+
+async function ensureClienteSchemaUpdates() {
+  const columns = await query('SHOW COLUMNS FROM clientes');
+  const byName = Object.fromEntries(columns.map((c) => [c.Field, c]));
+  if (!byName.telefono) {
+    await query('ALTER TABLE clientes ADD COLUMN telefono VARCHAR(8) NULL');
   }
 }
 
@@ -173,6 +188,7 @@ async function initDb() {
 
   await dropLegacyTables();
   await ensureTicketSchemaUpdates();
+  await ensureClienteSchemaUpdates();
   await ensureTicketsFotosMigration();
 
   const countRow = await queryOne('SELECT COUNT(*) AS total FROM empleados');

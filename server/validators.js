@@ -88,6 +88,7 @@ function validateCliente(body, partial = false) {
   const nombre_cliente =
     body.nombre_cliente !== undefined ? String(body.nombre_cliente).trim() : undefined;
   const direccion = body.direccion !== undefined ? String(body.direccion).trim() : undefined;
+  const telefono = body.telefono !== undefined ? String(body.telefono).trim() : undefined;
 
   if (!partial || nombre_empresa !== undefined) {
     if (!nombre_empresa || nombre_empresa.length === 0) {
@@ -102,6 +103,13 @@ function validateCliente(body, partial = false) {
   if (!partial || direccion !== undefined) {
     if (!direccion || direccion.length === 0) {
       errors.push('La dirección es obligatoria.');
+    }
+  }
+  if (!partial || telefono !== undefined) {
+    if (!partial && (!telefono || !TELEFONO_REGEX.test(telefono))) {
+      errors.push('El teléfono debe tener exactamente 8 dígitos.');
+    } else if (partial && telefono && !TELEFONO_REGEX.test(telefono)) {
+      errors.push('El teléfono debe tener exactamente 8 dígitos.');
     }
   }
 
@@ -122,6 +130,7 @@ function validateCliente(body, partial = false) {
     data: {
       nombre_empresa,
       nombre_cliente,
+      telefono: telefono !== undefined ? telefono || null : undefined,
       direccion,
       latitud: latitud.value,
       longitud: longitud.value,
@@ -312,6 +321,7 @@ function validateCotizacion(body, partial = false) {
 }
 
 const TICKET_STATUS = ['PENDIENTE', 'FINALIZADO'];
+const TICKET_PRIORIDAD = ['ALTA', 'MEDIA', 'BAJA'];
 
 function parseOptionalDateOnly(value, fieldName) {
   if (value === undefined || value === null || value === '') {
@@ -382,6 +392,8 @@ function validateTicket(body, partial = false) {
   const totalprecio =
     body.totalprecio !== undefined ? parseOptionalTotalPrecio(body.totalprecio, errors) : undefined;
   const status = body.status !== undefined ? String(body.status).trim().toUpperCase() : undefined;
+  const prioridad =
+    body.prioridad !== undefined ? String(body.prioridad).trim().toUpperCase() : undefined;
 
   let fechaInicioParsed;
   let fechaFinParsed;
@@ -428,6 +440,7 @@ function validateTicket(body, partial = false) {
       insumos,
       totalprecio,
       status: status !== undefined ? status : partial ? undefined : 'PENDIENTE',
+      prioridad: prioridad !== undefined ? prioridad : partial ? undefined : 'MEDIA',
     },
   };
 }
@@ -439,6 +452,7 @@ module.exports = {
   EMPLEADO_ESTADOS,
   COTIZACION_STATUS,
   TICKET_STATUS,
+  TICKET_PRIORIDAD,
   validateEmpleado,
   validateCliente,
   validateEvento,

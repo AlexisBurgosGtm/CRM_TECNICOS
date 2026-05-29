@@ -25,11 +25,11 @@ export async function renderClients(root) {
         <table class="table table-sm table-striped table-hover small mb-0">
           <thead class="table-app">
             <tr>
-              <th>Código</th><th>Empresa</th><th>Cliente</th><th>Dirección</th>
+              <th>Código</th><th>Empresa</th><th>Cliente</th><th>Teléfono</th><th>Dirección</th>
               <th>Lat</th><th>Lng</th><th class="text-end">Acciones</th>
             </tr>
           </thead>
-          <tbody id="clientesTableBody"><tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr></tbody>
+          <tbody id="clientesTableBody"><tr><td colspan="8" class="text-center text-muted">Cargando...</td></tr></tbody>
         </table>
       </div>
     </main>
@@ -53,6 +53,11 @@ export async function renderClients(root) {
             <div class="mb-2">
               <label class="form-label" for="clienteNombreCliente">Nombre del cliente</label>
               <input type="text" class="form-control form-control-sm" id="clienteNombreCliente" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="clienteTelefono">Teléfono (8 dígitos)</label>
+              <input type="tel" class="form-control form-control-sm" id="clienteTelefono"
+                pattern="\\d{8}" maxlength="8" inputmode="numeric" required>
             </div>
             <div class="mb-2">
               <label class="form-label" for="clienteDireccion">Dirección</label>
@@ -108,7 +113,7 @@ export async function renderClients(root) {
     try {
       const clientes = await api.listClientes();
       if (!clientes.length) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Sin registros</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Sin registros</td></tr>';
         return;
       }
       let list = clientes;
@@ -153,7 +158,7 @@ export async function renderClients(root) {
         });
       });
     } catch (err) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="text-danger text-center">Error al cargar</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Error al cargar</td></tr>';
       toastError(err.message);
     }
   }
@@ -163,9 +168,15 @@ export async function renderClients(root) {
   document.getElementById('clienteForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const codigo = document.getElementById('clienteCodigo').value;
+    const telefono = document.getElementById('clienteTelefono').value.trim();
+    if (!/^\d{8}$/.test(telefono)) {
+      toastError('El teléfono debe tener exactamente 8 dígitos.');
+      return;
+    }
     const body = {
       nombre_empresa: document.getElementById('clienteNombreEmpresa').value.trim(),
       nombre_cliente: document.getElementById('clienteNombreCliente').value.trim(),
+      telefono,
       direccion: document.getElementById('clienteDireccion').value.trim(),
       latitud: document.getElementById('clienteLatitud').value,
       longitud: document.getElementById('clienteLongitud').value,
