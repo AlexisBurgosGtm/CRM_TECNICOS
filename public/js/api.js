@@ -220,6 +220,10 @@ export function finalizarTicket(id, body = {}) {
 
 }
 
+export function uploadTicketFoto(id, slot, foto) {
+  return post('/tickets/upload-foto', { id, slot, foto });
+}
+
 
 
 export function deleteTicket(id) {

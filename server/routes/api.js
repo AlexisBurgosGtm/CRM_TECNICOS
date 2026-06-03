@@ -397,7 +397,7 @@ const TICKET_SELECT = `
          t.status, t.prioridad, t.foto1, t.foto2, t.foto3,
          emp.nombre AS empleado_nombre,
          c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
-         c.telefono AS cliente_telefono
+         c.telefono AS cliente_telefono, c.direccion AS cliente_direccion
   FROM tickets t
   LEFT JOIN empleados emp ON emp.codigo = t.codigo_empleado
   JOIN clientes c ON c.codigo = t.codigo_cliente
@@ -422,6 +422,7 @@ async function mapTicketRow(row, includePhotos = false) {
     cliente_empresa: row.cliente_empresa,
     cliente_nombre: row.cliente_nombre,
     cliente_telefono: row.cliente_telefono,
+    cliente_direccion: row.cliente_direccion,
   };
   if (includePhotos) {
     const photos = await loadTicketPhotos(row.id, row);
@@ -596,6 +597,37 @@ router.post(
         id,
       ]
     );
+
+    const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
+    res.json(await mapTicketRow(row, true));
+  })
+);
+
+router.post(
+  '/tickets/upload-foto',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.body?.id);
+    const slot = Number(req.body?.slot);
+    if (![1, 2, 3].includes(slot)) {
+      return res.status(400).json({ error: 'El número de foto debe ser 1, 2 o 3.' });
+    }
+    const foto = req.body?.foto;
+    if (!foto || (typeof foto === 'object' && !foto.data && !foto.dataUrl)) {
+      return res.status(400).json({ error: 'Debe enviar una imagen válida.' });
+    }
+
+    const existing = await queryOne(
+      `SELECT id, status, codigo_empleado, foto1, foto2, foto3 FROM tickets WHERE id = ?`,
+      [id]
+    );
+    if (!existing) return res.status(404).json({ error: 'Ticket no encontrado.' });
+    if (!canAccessTicket(existing, req.auth)) {
+      return res.status(403).json({ error: 'No autorizado.' });
+    }
+
+    const existingPhotos = await loadTicketPhotos(id, existing);
+    const fotoKey = `foto${slot}`;
+    await saveTicketPhotos(id, { [fotoKey]: foto }, existingPhotos);
 
     const row = await queryOne(`${TICKET_SELECT} WHERE t.id = ?`, [id]);
     res.json(await mapTicketRow(row, true));

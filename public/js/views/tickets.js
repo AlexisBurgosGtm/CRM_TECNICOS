@@ -74,12 +74,83 @@ function readFileAsDataUrl(file) {
   });
 }
 
-async function readOptionalPhoto(inputId) {
-  const input = document.getElementById(inputId);
-  if (!input?.files?.[0]) return null;
-  const file = input.files[0];
-  const data = await readFileAsDataUrl(file);
-  return { name: file.name, data };
+const FINALIZAR_PHOTO_SLOTS = [
+  { slot: 1, inputId: 'finalizarFoto1Input', btnId: 'finalizarFoto1Btn', statusId: 'finalizarFoto1Status' },
+  { slot: 2, inputId: 'finalizarFoto2Input', btnId: 'finalizarFoto2Btn', statusId: 'finalizarFoto2Status' },
+  { slot: 3, inputId: 'finalizarFoto3Input', btnId: 'finalizarFoto3Btn', statusId: 'finalizarFoto3Status' },
+];
+
+function setFinalizarPhotoStatus(statusEl, message, variant = 'muted') {
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.className = `small text-${variant}`;
+}
+
+function setFinalizarPhotoBtnLoading(btn, loading) {
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {
+    btn.dataset.prevHtml = btn.innerHTML;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Cargando…';
+  } else if (btn.dataset.prevHtml) {
+    btn.innerHTML = btn.dataset.prevHtml;
+    delete btn.dataset.prevHtml;
+  }
+}
+
+function initFinalizarPhotoStatus(ticket) {
+  FINALIZAR_PHOTO_SLOTS.forEach(({ slot, statusId }) => {
+    const status = document.getElementById(statusId);
+    const filename = ticket[`foto${slot}`];
+    if (filename) {
+      setFinalizarPhotoStatus(status, `Cargada: ${filename}`, 'success');
+    } else {
+      setFinalizarPhotoStatus(status, '', 'muted');
+    }
+  });
+}
+
+function bindFinalizarPhotoUploads() {
+  FINALIZAR_PHOTO_SLOTS.forEach(({ slot, inputId, btnId, statusId }) => {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const status = document.getElementById(statusId);
+    if (!input || !btn) return;
+
+    btn.addEventListener('click', () => {
+      if (!btn.disabled) input.click();
+    });
+
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const ticketId = Number(document.getElementById('finalizarTicketId').value);
+      setFinalizarPhotoBtnLoading(btn, true);
+      input.disabled = true;
+      setFinalizarPhotoStatus(status, 'Cargando…', 'primary');
+
+      try {
+        const data = await readFileAsDataUrl(file);
+        const updated = await api.uploadTicketFoto(ticketId, slot, { name: file.name, data });
+        const filename = updated[`foto${slot}`];
+        setFinalizarPhotoStatus(
+          status,
+          filename ? `Cargada: ${filename}` : 'Cargada',
+          'success'
+        );
+        toastSuccess(`Foto ${slot} cargada`);
+      } catch (err) {
+        toastError(err.message);
+        setFinalizarPhotoStatus(status, '', 'muted');
+      } finally {
+        setFinalizarPhotoBtnLoading(btn, false);
+        input.disabled = false;
+        input.value = '';
+      }
+    });
+  });
 }
 
 function matchesSearch(ticket, query) {
@@ -261,16 +332,34 @@ export async function renderTickets(root) {
               <textarea class="form-control form-control-sm" id="finalizarInsumos" rows="3"></textarea>
             </div>
             <div class="mb-2">
-              <label class="form-label" for="finalizarFoto1">Foto 1</label>
-              <input type="file" class="form-control form-control-sm" id="finalizarFoto1" accept="image/*">
+              <label class="form-label">Foto 1</label>
+              <input type="file" class="d-none" id="finalizarFoto1Input" accept="image/*">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="finalizarFoto1Btn">
+                  <i class="fa-solid fa-upload me-1"></i>Cargar foto 1
+                </button>
+                <span class="small text-muted" id="finalizarFoto1Status"></span>
+              </div>
             </div>
             <div class="mb-2">
-              <label class="form-label" for="finalizarFoto2">Foto 2</label>
-              <input type="file" class="form-control form-control-sm" id="finalizarFoto2" accept="image/*">
+              <label class="form-label">Foto 2</label>
+              <input type="file" class="d-none" id="finalizarFoto2Input" accept="image/*">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="finalizarFoto2Btn">
+                  <i class="fa-solid fa-upload me-1"></i>Cargar foto 2
+                </button>
+                <span class="small text-muted" id="finalizarFoto2Status"></span>
+              </div>
             </div>
             <div class="mb-2">
-              <label class="form-label" for="finalizarFoto3">Foto 3</label>
-              <input type="file" class="form-control form-control-sm" id="finalizarFoto3" accept="image/*">
+              <label class="form-label">Foto 3</label>
+              <input type="file" class="d-none" id="finalizarFoto3Input" accept="image/*">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="finalizarFoto3Btn">
+                  <i class="fa-solid fa-upload me-1"></i>Cargar foto 3
+                </button>
+                <span class="small text-muted" id="finalizarFoto3Status"></span>
+              </div>
             </div>
           </form>
           <div class="modal-footer py-2">
@@ -385,6 +474,7 @@ export async function renderTickets(root) {
   }
 
   finalizarModal = new bootstrap.Modal(document.getElementById('finalizarTicketModal'));
+  bindFinalizarPhotoUploads();
 
   function openFinalizarModal(ticket) {
     document.getElementById('finalizarTicketForm').reset();
@@ -397,6 +487,7 @@ export async function renderTickets(root) {
     document.getElementById('finalizarAccesos').value = ticket.accesos || '';
     document.getElementById('finalizarNotas').value = ticket.notas || '';
     document.getElementById('finalizarInsumos').value = ticket.insumos || '';
+    initFinalizarPhotoStatus(ticket);
     finalizarModal.show();
   }
 
@@ -428,13 +519,6 @@ export async function renderTickets(root) {
         notas: document.getElementById('finalizarNotas').value.trim() || null,
         insumos: document.getElementById('finalizarInsumos').value.trim() || null,
       };
-      const f1 = await readOptionalPhoto('finalizarFoto1');
-      const f2 = await readOptionalPhoto('finalizarFoto2');
-      const f3 = await readOptionalPhoto('finalizarFoto3');
-      if (f1) body.foto1 = f1;
-      if (f2) body.foto2 = f2;
-      if (f3) body.foto3 = f3;
-
       await api.finalizarTicket(id, body);
       finalizarModal.hide();
       toastSuccess('Ticket finalizado');
