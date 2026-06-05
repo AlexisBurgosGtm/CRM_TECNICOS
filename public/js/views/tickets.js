@@ -86,16 +86,87 @@ function setFinalizarPhotoStatus(statusEl, message, variant = 'muted') {
   statusEl.className = `small text-${variant}`;
 }
 
-function setFinalizarPhotoBtnLoading(btn, loading) {
+function setBtnLoading(btn, loading, loadingText = 'Cargando…') {
   if (!btn) return;
   btn.disabled = loading;
   if (loading) {
     btn.dataset.prevHtml = btn.innerHTML;
     btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Cargando…';
+      `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${loadingText}`;
   } else if (btn.dataset.prevHtml) {
     btn.innerHTML = btn.dataset.prevHtml;
     delete btn.dataset.prevHtml;
+  }
+}
+
+function setFinalizarPhotoBtnLoading(btn, loading) {
+  setBtnLoading(btn, loading);
+}
+
+function getFormSubmitBtn(formId) {
+  return document.querySelector(`button[type="submit"][form="${formId}"]`);
+}
+
+function getModalActionButtons(formId) {
+  const form = document.getElementById(formId);
+  const modal = form?.closest('.modal');
+  if (!modal) return [];
+  return [
+    ...modal.querySelectorAll('.modal-footer button'),
+    ...modal.querySelectorAll('.btn-close'),
+  ];
+}
+
+async function runFormAction(formId, loadingText, action) {
+  const form = document.getElementById(formId);
+  if (!form || form.dataset.busy === '1') return;
+
+  form.dataset.busy = '1';
+  const submitBtn = getFormSubmitBtn(formId);
+  const modalBtns = getModalActionButtons(formId);
+
+  setBtnLoading(submitBtn, true, loadingText);
+  modalBtns.forEach((b) => {
+    b.disabled = true;
+  });
+
+  try {
+    await action();
+  } finally {
+    delete form.dataset.busy;
+    setBtnLoading(submitBtn, false);
+    modalBtns.forEach((b) => {
+      b.disabled = false;
+    });
+  }
+}
+
+async function runButtonAction(btn, action, { loadingText = '', iconOnly = false } = {}) {
+  if (!btn || btn.disabled || btn.dataset.busy === '1') return;
+
+  btn.dataset.busy = '1';
+  if (iconOnly) {
+    btn.disabled = true;
+    btn.dataset.prevHtml = btn.innerHTML;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+  } else {
+    setBtnLoading(btn, true, loadingText);
+  }
+
+  try {
+    await action();
+  } finally {
+    delete btn.dataset.busy;
+    if (iconOnly) {
+      btn.disabled = false;
+      if (btn.dataset.prevHtml) {
+        btn.innerHTML = btn.dataset.prevHtml;
+        delete btn.dataset.prevHtml;
+      }
+    } else {
+      setBtnLoading(btn, false);
+    }
   }
 }
 
@@ -507,9 +578,8 @@ export async function renderTickets(root) {
 
   document.getElementById('finalizarTicketForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = Number(document.getElementById('finalizarTicketId').value);
-
-    try {
+    await runFormAction('finalizarTicketForm', 'Finalizando…', async () => {
+      const id = Number(document.getElementById('finalizarTicketId').value);
       const totalVal = document.getElementById('finalizarTotalPrecio').value.trim();
       const body = {
         fecha_fin: document.getElementById('finalizarFechaFin').value,
@@ -519,13 +589,15 @@ export async function renderTickets(root) {
         notas: document.getElementById('finalizarNotas').value.trim() || null,
         insumos: document.getElementById('finalizarInsumos').value.trim() || null,
       };
-      await api.finalizarTicket(id, body);
-      finalizarModal.hide();
-      toastSuccess('Ticket finalizado');
-      await loadList();
-    } catch (err) {
-      toastError(err.message);
-    }
+      try {
+        await api.finalizarTicket(id, body);
+        finalizarModal.hide();
+        toastSuccess('Ticket finalizado');
+        await loadList();
+      } catch (err) {
+        toastError(err.message);
+      }
+    });
   });
 
   if (supervisor) {
@@ -618,13 +690,19 @@ export async function renderTickets(root) {
           const id = Number(btn.dataset.id);
           const ok = await confirmAction('Eliminar ticket', '¿Confirma la eliminación?');
           if (!ok) return;
-          try {
-            await api.deleteTicket(id);
-            toastSuccess('Ticket eliminado');
-            await loadList();
-          } catch (err) {
-            toastError(err.message);
-          }
+          await runButtonAction(
+            btn,
+            async () => {
+              try {
+                await api.deleteTicket(id);
+                toastSuccess('Ticket eliminado');
+                await loadList();
+              } catch (err) {
+                toastError(err.message);
+              }
+            },
+            { iconOnly: true }
+          );
         });
       });
     };
@@ -635,47 +713,52 @@ export async function renderTickets(root) {
     document.getElementById('ticketForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('ticketId').value;
-      const empleadoVal = document.getElementById('ticketEmpleado').value;
-      const body = {
-        fecha_inicio: document.getElementById('ticketFechaInicio').value,
-        codigo_empleado: empleadoVal ? Number(empleadoVal) : null,
-        codigo_cliente: Number(document.getElementById('ticketCliente').value),
-        reporte_cliente: document.getElementById('ticketReporteCliente').value.trim() || null,
-      };
-      if (!id) {
-        body.status = 'PENDIENTE';
-        body.prioridad = document.getElementById('ticketPrioridad').value;
-        const totalVal = document.getElementById('ticketTotalPrecio').value.trim();
-        if (totalVal !== '') body.totalprecio = Number(totalVal);
-      }
-
-      try {
-        if (id) {
-          await api.updateTicket({ id: Number(id), ...body });
-          toastSuccess('Ticket actualizado');
-        } else {
-          await api.createTicket(body);
-          toastSuccess('Ticket creado');
+      const loadingText = id ? 'Guardando…' : 'Creando…';
+      await runFormAction('ticketForm', loadingText, async () => {
+        const empleadoVal = document.getElementById('ticketEmpleado').value;
+        const body = {
+          fecha_inicio: document.getElementById('ticketFechaInicio').value,
+          codigo_empleado: empleadoVal ? Number(empleadoVal) : null,
+          codigo_cliente: Number(document.getElementById('ticketCliente').value),
+          reporte_cliente: document.getElementById('ticketReporteCliente').value.trim() || null,
+        };
+        if (!id) {
+          body.status = 'PENDIENTE';
+          body.prioridad = document.getElementById('ticketPrioridad').value;
+          const totalVal = document.getElementById('ticketTotalPrecio').value.trim();
+          if (totalVal !== '') body.totalprecio = Number(totalVal);
         }
-        ticketModal.hide();
-        await loadList();
-      } catch (err) {
-        toastError(err.message);
-      }
+
+        try {
+          if (id) {
+            await api.updateTicket({ id: Number(id), ...body });
+            toastSuccess('Ticket actualizado');
+          } else {
+            await api.createTicket(body);
+            toastSuccess('Ticket creado');
+          }
+          ticketModal.hide();
+          await loadList();
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
     });
 
     document.getElementById('asignarTicketForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const id = Number(document.getElementById('asignarTicketId').value);
-      const codigo_empleado = Number(document.getElementById('asignarTicketEmpleado').value);
-      try {
-        await api.assignTicketEmpleado(id, codigo_empleado);
-        asignarModal.hide();
-        toastSuccess('Empleado asignado');
-        await loadList();
-      } catch (err) {
-        toastError(err.message);
-      }
+      await runFormAction('asignarTicketForm', 'Asignando…', async () => {
+        const id = Number(document.getElementById('asignarTicketId').value);
+        const codigo_empleado = Number(document.getElementById('asignarTicketEmpleado').value);
+        try {
+          await api.assignTicketEmpleado(id, codigo_empleado);
+          asignarModal.hide();
+          toastSuccess('Empleado asignado');
+          await loadList();
+        } catch (err) {
+          toastError(err.message);
+        }
+      });
     });
 
     await loadSelects();
