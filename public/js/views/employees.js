@@ -1,6 +1,7 @@
 import * as api from '../api.js';
 import { updateAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
+import { runFormAction } from '../form-actions.js';
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -238,19 +239,22 @@ export async function renderEmployees(root) {
       return;
     }
     if (clave) body.clave = clave;
-    try {
-      if (codigo) {
-        await api.updateEmpleado({ codigo: Number(codigo), ...body });
-        toastSuccess('Empleado actualizado');
-      } else {
-        await api.createEmpleado(body);
-        toastSuccess('Empleado creado');
+    const loadingText = codigo ? 'Guardando…' : 'Creando…';
+    await runFormAction('empleadoForm', loadingText, async () => {
+      try {
+        if (codigo) {
+          await api.updateEmpleado({ codigo: Number(codigo), ...body });
+          toastSuccess('Empleado actualizado');
+        } else {
+          await api.createEmpleado(body);
+          toastSuccess('Empleado creado');
+        }
+        modal.hide();
+        await load();
+      } catch (err) {
+        toastError(err.message);
       }
-      modal.hide();
-      await load();
-    } catch (err) {
-      toastError(err.message);
-    }
+    });
   });
 
   await load();

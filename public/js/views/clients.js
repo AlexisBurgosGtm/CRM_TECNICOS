@@ -1,6 +1,7 @@
 import * as api from '../api.js';
 import { updateAppShell, bindLogout } from '../components/layout.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
+import { runFormAction } from '../form-actions.js';
 
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
@@ -181,19 +182,22 @@ export async function renderClients(root) {
       latitud: document.getElementById('clienteLatitud').value,
       longitud: document.getElementById('clienteLongitud').value,
     };
-    try {
-      if (codigo) {
-        await api.updateCliente({ codigo: Number(codigo), ...body });
-        toastSuccess('Cliente actualizado');
-      } else {
-        await api.createCliente(body);
-        toastSuccess('Cliente creado');
+    const loadingText = codigo ? 'Guardando…' : 'Creando…';
+    await runFormAction('clienteForm', loadingText, async () => {
+      try {
+        if (codigo) {
+          await api.updateCliente({ codigo: Number(codigo), ...body });
+          toastSuccess('Cliente actualizado');
+        } else {
+          await api.createCliente(body);
+          toastSuccess('Cliente creado');
+        }
+        modal.hide();
+        await load();
+      } catch (err) {
+        toastError(err.message);
       }
-      modal.hide();
-      await load();
-    } catch (err) {
-      toastError(err.message);
-    }
+    });
   });
 
   await load();
