@@ -24,6 +24,7 @@ let currentRoute = null;
 
 function removeFloatingActions() {
   document.getElementById('btnFabNuevoTicket')?.remove();
+  document.getElementById('btnFabBuscarTicket')?.remove();
 }
 
 function removeDetachedModals() {

@@ -196,6 +196,11 @@ body {
   color: #fff;
 }
 
+.fab-floating-left {
+  left: 1.5rem;
+  right: auto;
+}
+
 .ticket-dias-verde {
   background-color: #16a34a !important;
   color: #fff !important;
@@ -492,8 +497,8 @@ main {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  width: 52px;
-  height: 52px;
+  width: 57px;
+  height: 57px;
   object-fit: contain;
   z-index: 2;
 }
@@ -523,8 +528,64 @@ main {
 }
 
 .login-card {
-  max-width: 380px;
+  position: relative;
+  max-width: 400px;
   background: #fff;
+  border: none;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--primary-start),
+    var(--primary-end),
+    #c4b5fd,
+    var(--primary-start)
+  );
+  background-size: 300% 100%;
+  animation: loginBorderGlow 4s linear infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes loginBorderGlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+.login-input {
+  padding: 0.65rem 0.85rem;
+  font-size: 1rem;
+}
+
+.login-submit-btn {
+  padding: 0.7rem 1rem;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .login-header {

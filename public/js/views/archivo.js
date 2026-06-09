@@ -2,7 +2,12 @@ import * as api from '../api.js';
 import { updateAppShell, bindLogout } from '../components/layout.js';
 import { toastError, toastSuccess } from '../alerts.js';
 import { formatDate, formatImporte } from '../format.js';
-import { statusBadge, renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
+import {
+  statusBadge,
+  renderTicketDetailHtml,
+  bindPhotoZoom,
+  bindTicketDetailImageDownload,
+} from '../components/ticket-detail.js';
 import { exportRowsToExcel } from '../export-excel.js';
 
 function pad(n) {
@@ -119,6 +124,9 @@ export async function renderArchivo(root) {
           </div>
           <div class="modal-body py-2" id="archivoTicketModalBody"></div>
           <div class="modal-footer py-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="archivoTicketDownloadBtn">
+              <i class="fa-solid fa-download me-1"></i>Descargar imagen
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
           </div>
         </div>
@@ -129,12 +137,16 @@ export async function renderArchivo(root) {
   await bindLogout();
 
   detailModal = new bootstrap.Modal(document.getElementById('archivoTicketModal'));
+  const archivoTicketModalContent = document.querySelector('#archivoTicketModal .modal-content');
+  const archivoTicketDownloadBtn = document.getElementById('archivoTicketDownloadBtn');
+  bindTicketDetailImageDownload(archivoTicketDownloadBtn, archivoTicketModalContent);
   const tableBody = document.getElementById('archivoTableBody');
 
   function openDetailModal(ticket) {
     document.getElementById('archivoTicketModalLabel').textContent = `Ticket #${ticket.id}`;
     const body = document.getElementById('archivoTicketModalBody');
     body.innerHTML = renderTicketDetailHtml(ticket);
+    archivoTicketDownloadBtn.dataset.ticketId = ticket.id;
     bindPhotoZoom(body);
     detailModal.show();
   }

@@ -80,3 +80,27 @@ export function showError(message) {
     confirmButtonColor: '#7c3aed',
   });
 }
+
+export async function promptTicketNumber() {
+  const result = await Swal.fire({
+    ...confirmDialogDefaults,
+    title: 'Buscar ticket',
+    text: 'Ingrese el número de ticket',
+    input: 'text',
+    inputAttributes: {
+      inputmode: 'numeric',
+      pattern: '[0-9]*',
+      autocomplete: 'off',
+    },
+    confirmButtonText: 'Aceptar',
+    cancelButtonText: 'Cancelar',
+    inputValidator: (value) => {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return 'Ingrese un número de ticket.';
+      if (!/^\d+$/.test(trimmed)) return 'Solo se permiten números.';
+      return null;
+    },
+  });
+  if (!result.isConfirmed) return null;
+  return Number(result.value);
+}

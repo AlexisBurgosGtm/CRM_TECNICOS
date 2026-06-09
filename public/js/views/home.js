@@ -1,8 +1,13 @@
 import * as api from '../api.js';
 import { updateAppShell, bindLogout } from '../components/layout.js';
-import { toastSuccess, toastError } from '../alerts.js';
+import { toastSuccess, toastError, promptTicketNumber } from '../alerts.js';
 import { formatDate, formatImporte } from '../format.js';
-import { statusBadge, renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
+import {
+  statusBadge,
+  renderTicketDetailHtml,
+  bindPhotoZoom,
+  bindTicketDetailImageDownload,
+} from '../components/ticket-detail.js';
 import { renderImporteLineChart, destroyImporteChart } from '../components/dashboard-chart.js';
 
 function pad(n) {
@@ -67,6 +72,18 @@ function sortTicketsNewestFirst(tickets) {
     if (dateCmp !== 0) return dateCmp;
     return b.id - a.id;
   });
+}
+
+function mountHomeSearchFab() {
+  document.getElementById('btnFabBuscarTicket')?.remove();
+  const fab = document.createElement('button');
+  fab.type = 'button';
+  fab.id = 'btnFabBuscarTicket';
+  fab.className = 'btn btn-primary fab-add-floating fab-floating-left';
+  fab.setAttribute('aria-label', 'Buscar ticket por número');
+  fab.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+  document.body.appendChild(fab);
+  return fab;
 }
 
 export async function renderHome(root) {
@@ -167,6 +184,9 @@ export async function renderHome(root) {
           </div>
           <div class="modal-body py-2" id="homeTicketModalBody"></div>
           <div class="modal-footer py-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="homeTicketDownloadBtn">
+              <i class="fa-solid fa-download me-1"></i>Descargar imagen
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
           </div>
         </div>
@@ -194,13 +214,35 @@ export async function renderHome(root) {
   const empleadosResumenList = document.getElementById('empleadosResumenList');
   const pendientesModal = new bootstrap.Modal(document.getElementById('pendientesEmpleadoModal'));
   const ticketDetailModal = new bootstrap.Modal(document.getElementById('homeTicketModal'));
+  const homeTicketModalContent = document.querySelector('#homeTicketModal .modal-content');
+  const homeTicketDownloadBtn = document.getElementById('homeTicketDownloadBtn');
+  bindTicketDetailImageDownload(homeTicketDownloadBtn, homeTicketModalContent);
 
   function openTicketDetailModal(ticket) {
     document.getElementById('homeTicketModalLabel').textContent = `Ticket #${ticket.id}`;
     const body = document.getElementById('homeTicketModalBody');
     body.innerHTML = renderTicketDetailHtml(ticket);
+    homeTicketDownloadBtn.dataset.ticketId = ticket.id;
     bindPhotoZoom(body);
     ticketDetailModal.show();
+  }
+
+  async function searchTicketByNumber() {
+    const ticketNum = await promptTicketNumber();
+    if (!ticketNum) return;
+
+    const inList = dashboardData.tickets.find((t) => t.id === ticketNum);
+    if (!inList) {
+      toastError(`El ticket #${ticketNum} no está en la lista actual.`);
+      return;
+    }
+
+    try {
+      const ticket = await api.getTicket(ticketNum);
+      openTicketDetailModal(ticket);
+    } catch (err) {
+      toastError(err.message);
+    }
   }
 
   function bindTicketRowActions() {
@@ -395,6 +437,9 @@ export async function renderHome(root) {
     searchQuery = e.target.value.trim();
     applyTicketsView();
   });
+
+  const searchFab = mountHomeSearchFab();
+  searchFab.addEventListener('click', searchTicketByNumber);
 
   await loadDashboard();
 }

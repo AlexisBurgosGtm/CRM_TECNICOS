@@ -3,7 +3,11 @@ import { updateAppShell, bindLogout } from '../components/layout.js';
 import { isSupervisor } from '../auth.js';
 import { toastSuccess, toastError, confirmAction } from '../alerts.js';
 import { formatDate } from '../format.js';
-import { renderTicketDetailHtml, bindPhotoZoom } from '../components/ticket-detail.js';
+import {
+  renderTicketDetailHtml,
+  bindPhotoZoom,
+  bindTicketDetailImageDownload,
+} from '../components/ticket-detail.js';
 import { setBtnLoading, runFormAction, runButtonAction } from '../form-actions.js';
 
 function pad(n) {
@@ -370,6 +374,9 @@ export async function renderTickets(root) {
           </div>
           <div class="modal-body py-2" id="ticketsDetailModalBody"></div>
           <div class="modal-footer py-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="ticketsDetailDownloadBtn">
+              <i class="fa-solid fa-download me-1"></i>Descargar imagen
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
           </div>
         </div>
@@ -383,6 +390,9 @@ export async function renderTickets(root) {
   const colSpan = 7;
   let bindSupervisorRowActions = () => {};
   const detailModal = new bootstrap.Modal(document.getElementById('ticketsDetailModal'));
+  const ticketsDetailModalContent = document.querySelector('#ticketsDetailModal .modal-content');
+  const ticketsDetailDownloadBtn = document.getElementById('ticketsDetailDownloadBtn');
+  bindTicketDetailImageDownload(ticketsDetailDownloadBtn, ticketsDetailModalContent);
 
   function detailButtonHtml(id) {
     return `<button type="button" class="btn btn-outline-info btn-sm btn-ticket-detalle" data-id="${id}" title="Ver detalle">
@@ -394,6 +404,7 @@ export async function renderTickets(root) {
     document.getElementById('ticketsDetailModalLabel').textContent = `Ticket #${ticket.id}`;
     const body = document.getElementById('ticketsDetailModalBody');
     body.innerHTML = renderTicketDetailHtml(ticket);
+    ticketsDetailDownloadBtn.dataset.ticketId = ticket.id;
     bindPhotoZoom(body);
     detailModal.show();
   }

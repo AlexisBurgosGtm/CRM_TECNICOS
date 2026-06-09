@@ -1,4 +1,6 @@
 import { formatDate, formatImporte } from '../format.js';
+import { downloadTicketDetailImage } from '../export-ticket-image.js';
+import { toastSuccess, toastError } from '../alerts.js';
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -101,6 +103,28 @@ function ensurePhotoLightbox() {
   );
 
   photoLightboxModal = new bootstrap.Modal(document.getElementById('ticketPhotoLightbox'));
+}
+
+export function bindTicketDetailImageDownload(btn, modalContentEl, ticketId) {
+  if (!btn || btn.dataset.boundDownload === '1') return;
+  btn.dataset.boundDownload = '1';
+  btn.addEventListener('click', async () => {
+    const id = Number(ticketId ?? btn.dataset.ticketId);
+    if (!id) return;
+    btn.disabled = true;
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Generando…';
+    try {
+      await downloadTicketDetailImage(modalContentEl, id);
+      toastSuccess('Imagen descargada');
+    } catch (err) {
+      toastError(err.message || 'No se pudo generar la imagen');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = prevHtml;
+    }
+  });
 }
 
 export function bindPhotoZoom(container) {

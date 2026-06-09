@@ -17,13 +17,13 @@ export async function renderLogin(root) {
             <form id="loginForm">
               <div class="mb-3">
                 <label for="loginNombre" class="form-label">Nombre de empleado</label>
-                <input type="text" class="form-control form-control-sm" id="loginNombre" autocomplete="username" required>
+                <input type="text" class="form-control login-input" id="loginNombre" autocomplete="username" required>
               </div>
               <div class="mb-3">
                 <label for="loginClave" class="form-label">Clave</label>
-                <input type="password" class="form-control form-control-sm" id="loginClave" autocomplete="current-password" required>
+                <input type="password" class="form-control login-input" id="loginClave" autocomplete="current-password" required>
               </div>
-              <button type="submit" class="btn btn-primary btn-sm w-100">
+              <button type="submit" class="btn btn-primary login-submit-btn w-100">
                 <i class="fa-solid fa-lock me-1"></i>Ingresar
               </button>
             </form>
