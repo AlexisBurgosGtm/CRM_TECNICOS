@@ -7,7 +7,7 @@ const { ensureFotosDir } = require('./server/photos');
 const apiRouter = require('./server/routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3008;
 const publicDir = path.join(__dirname, 'public');
 const fotosDir = path.join(__dirname, 'FOTOS');
 

@@ -431,6 +431,16 @@ main {
   vertical-align: middle;
 }
 
+.table-search-input {
+  border: 2px solid var(--primary-mid);
+  box-shadow: 0 0 0 0.125rem rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.table-search-input:focus {
+  border-color: var(--primary-start);
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.28);
+}
+
 .fc-event-outline,
 .fc-event-outline .fc-event-main,
 .fc-event-outline .fc-event-title {

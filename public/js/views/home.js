@@ -43,10 +43,37 @@ function filterTickets(tickets, estatusFiltro) {
   return tickets;
 }
 
+function matchesSearch(ticket, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const haystack = [
+    ticket.fecha_inicio,
+    ticket.fecha_fin,
+    ticket.empleado_nombre,
+    ticket.cliente_empresa,
+    ticket.cliente_nombre,
+    ticket.reporte_cliente,
+    ticket.status,
+    ticket.totalprecio,
+  ]
+    .map((v) => String(v || '').toLowerCase())
+    .join(' ');
+  return haystack.includes(q);
+}
+
+function sortTicketsNewestFirst(tickets) {
+  return [...tickets].sort((a, b) => {
+    const dateCmp = (b.fecha_inicio || '').localeCompare(a.fecha_inicio || '');
+    if (dateCmp !== 0) return dateCmp;
+    return b.id - a.id;
+  });
+}
+
 export async function renderHome(root) {
   updateAppShell('inicio', 'Inicio');
   const { start, end } = monthRange();
   let dashboardData = { tickets: [], empleados: [] };
+  let searchQuery = '';
 
   root.innerHTML = `
     <main class="container-fluid py-2">
@@ -82,6 +109,11 @@ export async function renderHome(root) {
                   </div>
                 </div>
               </form>
+              <div class="mb-2">
+                <label class="form-label visually-hidden" for="homeTicketSearch">Buscar tickets</label>
+                <input type="search" class="form-control form-control-sm table-search-input" id="homeTicketSearch"
+                  placeholder="Buscar en la tabla…" autocomplete="off">
+              </div>
               <div class="table-responsive eventos-list-wrap">
                 <table class="table table-sm table-hover small mb-0">
                   <thead>
@@ -206,6 +238,17 @@ export async function renderHome(root) {
     }
   }
 
+  function getVisibleTickets() {
+    const estatusFiltro = document.getElementById('filtroEstatus').value;
+    return sortTicketsNewestFirst(
+      filterTickets(dashboardData.tickets, estatusFiltro).filter((t) => matchesSearch(t, searchQuery))
+    );
+  }
+
+  function applyTicketsView() {
+    renderTicketsTable(getVisibleTickets());
+  }
+
   function renderTicketsTable(tickets) {
     updateTotalPrecio(tickets);
     updateImporteChart(tickets);
@@ -278,7 +321,6 @@ export async function renderHome(root) {
   async function loadDashboard() {
     const desde = document.getElementById('filtroDesde').value;
     const hasta = document.getElementById('filtroHasta').value;
-    const estatusFiltro = document.getElementById('filtroEstatus').value;
     if (!desde || !hasta) {
       toastError('Seleccione el rango de fechas.');
       return;
@@ -291,8 +333,7 @@ export async function renderHome(root) {
     try {
       const { start, end } = rangeToIso(desde, hasta);
       dashboardData = await api.getDashboardResumen(start, end);
-      const ticketsFiltrados = filterTickets(dashboardData.tickets, estatusFiltro);
-      renderTicketsTable(ticketsFiltrados);
+      applyTicketsView();
 
       if (!dashboardData.empleados.length) {
         empleadosResumenList.innerHTML =
@@ -348,9 +389,11 @@ export async function renderHome(root) {
   document.getElementById('filtroDesde').addEventListener('change', onFiltroFechaChange);
   document.getElementById('filtroHasta').addEventListener('change', onFiltroFechaChange);
 
-  document.getElementById('filtroEstatus').addEventListener('change', () => {
-    const estatusFiltro = document.getElementById('filtroEstatus').value;
-    renderTicketsTable(filterTickets(dashboardData.tickets, estatusFiltro));
+  document.getElementById('filtroEstatus').addEventListener('change', applyTicketsView);
+
+  document.getElementById('homeTicketSearch').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    applyTicketsView();
   });
 
   await loadDashboard();
