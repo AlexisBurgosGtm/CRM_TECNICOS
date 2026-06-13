@@ -8,27 +8,33 @@ import { renderClients } from './views/clients.js';
 import { renderTickets } from './views/tickets.js';
 import { renderArchivo } from './views/archivo.js';
 import { renderConfig } from './views/config.js';
+import { renderEmpresas } from './views/empresas.js';
+import { renderFacturacion } from './views/facturacion.js';
 
 const routes = {
   login: { render: renderLogin, auth: false },
   inicio: { render: renderHome, auth: true },
   tickets: { render: renderTickets, auth: true },
   calendario: { render: renderCalendar, auth: true },
+  facturacion: { render: renderFacturacion, auth: true },
   archivo: { render: renderArchivo, auth: true },
   empleados: { render: renderEmployees, auth: true },
   clientes: { render: renderClients, auth: true },
   config: { render: renderConfig, auth: true },
+  empresas: { render: renderEmpresas, auth: true },
 };
 
 let currentRoute = null;
 
 function removeFloatingActions() {
-  document.getElementById('btnFabNuevoTicket')?.remove();
-  document.getElementById('btnFabBuscarTicket')?.remove();
+  document.querySelectorAll('[data-fab-add]').forEach((el) => el.remove());
 }
 
 function removeDetachedModals() {
-  document.querySelectorAll('body > .modal').forEach((el) => el.remove());
+  document.querySelectorAll('body > .modal').forEach((el) => {
+    if (el.id === 'themePickerModal') return;
+    el.remove();
+  });
   document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
   document.body.classList.remove('modal-open');
   document.body.style.removeProperty('overflow');

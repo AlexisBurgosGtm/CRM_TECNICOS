@@ -1,7 +1,7 @@
 import * as api from '../api.js';
 import { updateAppShell, bindLogout } from '../components/layout.js';
 import { isSupervisor } from '../auth.js';
-import { toastSuccess, toastError, confirmAction } from '../alerts.js';
+import { toastSuccess, toastError, confirmDeleteWithClave } from '../alerts.js';
 import { formatDate } from '../format.js';
 import {
   renderTicketDetailHtml,
@@ -9,6 +9,7 @@ import {
   bindTicketDetailImageDownload,
 } from '../components/ticket-detail.js';
 import { setBtnLoading, runFormAction, runButtonAction } from '../form-actions.js';
+import { mountFloatingFab } from '../components/fab.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -95,12 +96,18 @@ function setFinalizarPhotoBtnLoading(btn, loading) {
   setBtnLoading(btn, loading);
 }
 
+function photoLoadedLabel(value) {
+  if (!value) return '';
+  if (String(value).startsWith('data:')) return 'Cargada';
+  return `Cargada: ${value}`;
+}
+
 function initFinalizarPhotoStatus(ticket) {
   FINALIZAR_PHOTO_SLOTS.forEach(({ slot, statusId }) => {
     const status = document.getElementById(statusId);
-    const filename = ticket[`foto${slot}`];
-    if (filename) {
-      setFinalizarPhotoStatus(status, `Cargada: ${filename}`, 'success');
+    const photo = ticket[`foto${slot}`];
+    if (photo) {
+      setFinalizarPhotoStatus(status, photoLoadedLabel(photo), 'success');
     } else {
       setFinalizarPhotoStatus(status, '', 'muted');
     }
@@ -130,10 +137,9 @@ function bindFinalizarPhotoUploads() {
       try {
         const data = await readFileAsDataUrl(file);
         const updated = await api.uploadTicketFoto(ticketId, slot, { name: file.name, data });
-        const filename = updated[`foto${slot}`];
         setFinalizarPhotoStatus(
           status,
-          filename ? `Cargada: ${filename}` : 'Cargada',
+          photoLoadedLabel(updated[`foto${slot}`]) || 'Cargada',
           'success'
         );
         toastSuccess(`Foto ${slot} cargada`);
@@ -166,15 +172,7 @@ function matchesSearch(ticket, query) {
 }
 
 function mountTicketsFab() {
-  document.getElementById('btnFabNuevoTicket')?.remove();
-  const fab = document.createElement('button');
-  fab.type = 'button';
-  fab.id = 'btnFabNuevoTicket';
-  fab.className = 'btn btn-primary fab-add-floating';
-  fab.setAttribute('aria-label', 'Nuevo ticket');
-  fab.innerHTML = '<i class="fa-solid fa-plus"></i>';
-  document.body.appendChild(fab);
-  return fab;
+  return mountFloatingFab({ id: 'btnFabNuevoTicket', ariaLabel: 'Nuevo ticket' });
 }
 
 export async function renderTickets(root) {
@@ -400,6 +398,35 @@ export async function renderTickets(root) {
             </button>`;
   }
 
+  function mapsButtonHtml(ticket) {
+    const lat = ticket.cliente_latitud;
+    const lng = ticket.cliente_longitud;
+    const hasCoords =
+      lat != null &&
+      lng != null &&
+      Number.isFinite(Number(lat)) &&
+      Number.isFinite(Number(lng));
+    if (!hasCoords) {
+      return `<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Sin ubicación del cliente">
+                <i class="fa-solid fa-location-dot"></i>
+              </button>`;
+    }
+    return `<button type="button" class="btn btn-outline-secondary btn-sm btn-ticket-maps" data-lat="${lat}" data-lng="${lng}" title="Abrir en Google Maps">
+              <i class="fa-solid fa-location-dot"></i>
+            </button>`;
+  }
+
+  function bindMapsActions() {
+    document.querySelectorAll('.btn-ticket-maps').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lat = btn.dataset.lat;
+        const lng = btn.dataset.lng;
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      });
+    });
+  }
+
   function openDetailModal(ticket) {
     document.getElementById('ticketsDetailModalLabel').textContent = `Ticket #${ticket.id}`;
     const body = document.getElementById('ticketsDetailModalBody');
@@ -444,6 +471,7 @@ export async function renderTickets(root) {
             <button type="button" class="btn btn-outline-primary btn-sm btn-ticket-edit" data-id="${t.id}" title="Editar">
               <i class="fa-solid fa-pen"></i>
             </button>
+            ${mapsButtonHtml(t)}
             ${detailButtonHtml(t.id)}
             <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
               <i class="fa-solid fa-check me-1"></i>Finalizar
@@ -453,6 +481,7 @@ export async function renderTickets(root) {
             </button>
           </td>`
           : `<td class="text-end text-nowrap ticket-row-actions" data-label="Acciones">
+            ${mapsButtonHtml(t)}
             ${detailButtonHtml(t.id)}
             <button type="button" class="btn btn-outline-success btn-sm btn-ticket-finalizar" data-id="${t.id}" title="Finalizar">
               <i class="fa-solid fa-check me-1"></i>Finalizar
@@ -472,6 +501,7 @@ export async function renderTickets(root) {
       .join('');
 
     bindDetailActions();
+    bindMapsActions();
     bindFinalizarActions();
     if (supervisor) bindSupervisorRowActions();
   }
@@ -620,13 +650,13 @@ export async function renderTickets(root) {
       document.querySelectorAll('.btn-ticket-delete').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const id = Number(btn.dataset.id);
-          const ok = await confirmAction('Eliminar ticket', '¿Confirma la eliminación?');
-          if (!ok) return;
+          const clave = await confirmDeleteWithClave('Eliminar ticket', '¿Confirma la eliminación?');
+          if (!clave) return;
           await runButtonAction(
             btn,
             async () => {
               try {
-                await api.deleteTicket(id);
+                await api.deleteTicket(id, clave);
                 toastSuccess('Ticket eliminado');
                 await loadList();
               } catch (err) {

@@ -6,12 +6,20 @@ const COLOR_HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
 function validateEmpleado(body, partial = false) {
   const errors = [];
+  const empnit = body.empnit !== undefined ? String(body.empnit).trim() : undefined;
   const nombre = body.nombre !== undefined ? String(body.nombre).trim() : undefined;
   const telefono = body.telefono !== undefined ? String(body.telefono).trim() : undefined;
   const tipo = body.tipo !== undefined ? String(body.tipo).trim().toUpperCase() : undefined;
   const estado = body.estado !== undefined ? String(body.estado).trim().toUpperCase() : undefined;
   const clave = body.clave !== undefined ? String(body.clave) : undefined;
   const color = body.color !== undefined ? String(body.color).trim() : undefined;
+
+  if (!partial || empnit !== undefined) {
+    const value = empnit !== undefined ? empnit : partial ? undefined : '';
+    if (value !== undefined && value.length > 50) {
+      errors.push('El NIT de empresa no puede superar 50 caracteres.');
+    }
+  }
 
   if (!partial || nombre !== undefined) {
     if (!nombre || nombre.length === 0) errors.push('El nombre es obligatorio.');
@@ -49,6 +57,7 @@ function validateEmpleado(body, partial = false) {
     valid: errors.length === 0,
     errors,
     data: {
+      empnit: empnit !== undefined ? empnit : partial ? undefined : '',
       nombre,
       telefono,
       tipo: tipo !== undefined ? tipo : partial ? undefined : 'TECNICO',
@@ -124,6 +133,20 @@ function validateCliente(body, partial = false) {
     if (!longitud.valid) errors.push(longitud.error);
   }
 
+  const fac_nit = body.fac_nit !== undefined ? String(body.fac_nit).trim() : undefined;
+  const fac_nombre = body.fac_nombre !== undefined ? String(body.fac_nombre).trim() : undefined;
+  const fac_direccion = body.fac_direccion !== undefined ? String(body.fac_direccion).trim() : undefined;
+
+  if (fac_nit !== undefined && fac_nit.length > 50) {
+    errors.push('El NIT de facturación no puede superar 50 caracteres.');
+  }
+  if (fac_nombre !== undefined && fac_nombre.length > 255) {
+    errors.push('El nombre de facturación no puede superar 255 caracteres.');
+  }
+  if (fac_direccion !== undefined && fac_direccion.length > 500) {
+    errors.push('La dirección de facturación no puede superar 500 caracteres.');
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -134,6 +157,9 @@ function validateCliente(body, partial = false) {
       direccion,
       latitud: latitud.value,
       longitud: longitud.value,
+      fac_nit: fac_nit !== undefined ? fac_nit || null : undefined,
+      fac_nombre: fac_nombre !== undefined ? fac_nombre || null : undefined,
+      fac_direccion: fac_direccion !== undefined ? fac_direccion || null : undefined,
     },
   };
 }
@@ -322,6 +348,7 @@ function validateCotizacion(body, partial = false) {
 
 const TICKET_STATUS = ['PENDIENTE', 'FINALIZADO'];
 const TICKET_PRIORIDAD = ['ALTA', 'MEDIA', 'BAJA'];
+const EMPRESA_ACTIVA = ['SI', 'NO'];
 
 function parseOptionalDateOnly(value, fieldName) {
   if (value === undefined || value === null || value === '') {
@@ -445,6 +472,38 @@ function validateTicket(body, partial = false) {
   };
 }
 
+function validateEmpresa(body, partial = false) {
+  const errors = [];
+  const empnit = body.empnit !== undefined ? String(body.empnit).trim() : undefined;
+  const empresa = body.empresa !== undefined ? String(body.empresa).trim() : undefined;
+  const activa = body.activa !== undefined ? String(body.activa).trim().toUpperCase() : undefined;
+
+  if (!partial || empnit !== undefined) {
+    if (!empnit || empnit.length === 0) errors.push('El NIT es obligatorio.');
+    else if (empnit.length > 50) errors.push('El NIT no puede superar 50 caracteres.');
+  }
+  if (!partial || empresa !== undefined) {
+    if (!empresa || empresa.length === 0) errors.push('El nombre de la empresa es obligatorio.');
+    else if (empresa.length > 255) errors.push('El nombre de la empresa no puede superar 255 caracteres.');
+  }
+  if (!partial || activa !== undefined) {
+    const value = activa !== undefined ? activa : partial ? undefined : 'SI';
+    if (value !== undefined && !EMPRESA_ACTIVA.includes(value)) {
+      errors.push('El estado activa debe ser SI o NO.');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: {
+      empnit,
+      empresa,
+      activa: activa !== undefined ? activa : partial ? undefined : 'SI',
+    },
+  };
+}
+
 module.exports = {
   TELEFONO_REGEX,
   EVENTO_ESTATUS,
@@ -453,11 +512,13 @@ module.exports = {
   COTIZACION_STATUS,
   TICKET_STATUS,
   TICKET_PRIORIDAD,
+  EMPRESA_ACTIVA,
   validateEmpleado,
   validateCliente,
   validateEvento,
   validateCotizacion,
   validateTicket,
+  validateEmpresa,
   parseDateOnly,
   sanitizeMysqlText,
 };

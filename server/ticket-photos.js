@@ -1,5 +1,5 @@
 const { query, queryOne, execute } = require('./db');
-const { saveTicketPhoto } = require('./photos');
+const { photoInputToHex } = require('./photos');
 
 async function loadTicketPhotos(ticketId, legacyRow = null) {
   const row = await queryOne(
@@ -22,35 +22,30 @@ async function loadTicketPhotos(ticketId, legacyRow = null) {
   return result;
 }
 
-function resolvePhotoFilename(input, ticketId, slot, existingFilename) {
+function resolvePhotoValue(input, existingValue) {
   if (input == null || input === '') return null;
-  if (
-    typeof input === 'string' &&
-    !input.startsWith('data:') &&
-    existingFilename &&
-    input === existingFilename
-  ) {
-    return existingFilename;
+  if (typeof input === 'string' && existingValue && input === existingValue) {
+    return existingValue;
   }
-  return saveTicketPhoto(input, ticketId, slot);
+  return photoInputToHex(input);
 }
 
-async function saveTicketPhotos(ticketId, inputs, existingPhotos = {}) {
+async function saveTicketPhotos(ticketId, inputs, existingPhotos = {}, empnit) {
   const hasInput =
     inputs.foto1 !== undefined || inputs.foto2 !== undefined || inputs.foto3 !== undefined;
   if (!hasInput) return;
 
   const foto1 =
     inputs.foto1 !== undefined
-      ? resolvePhotoFilename(inputs.foto1, ticketId, 1, existingPhotos.foto1)
+      ? resolvePhotoValue(inputs.foto1, existingPhotos.foto1)
       : existingPhotos.foto1;
   const foto2 =
     inputs.foto2 !== undefined
-      ? resolvePhotoFilename(inputs.foto2, ticketId, 2, existingPhotos.foto2)
+      ? resolvePhotoValue(inputs.foto2, existingPhotos.foto2)
       : existingPhotos.foto2;
   const foto3 =
     inputs.foto3 !== undefined
-      ? resolvePhotoFilename(inputs.foto3, ticketId, 3, existingPhotos.foto3)
+      ? resolvePhotoValue(inputs.foto3, existingPhotos.foto3)
       : existingPhotos.foto3;
 
   const existing = await queryOne('SELECT ID FROM tickets_fotos WHERE ID_TICKET = ?', [ticketId]);
@@ -61,8 +56,8 @@ async function saveTicketPhotos(ticketId, inputs, existingPhotos = {}) {
     );
   } else if (foto1 || foto2 || foto3) {
     await execute(
-      'INSERT INTO tickets_fotos (ID_TICKET, FOTO1, FOTO2, FOTO3) VALUES (?, ?, ?, ?)',
-      [ticketId, foto1, foto2, foto3]
+      'INSERT INTO tickets_fotos (EMPNIT, ID_TICKET, FOTO1, FOTO2, FOTO3) VALUES (?, ?, ?, ?, ?)',
+      [empnit, ticketId, foto1, foto2, foto3]
     );
   }
 }

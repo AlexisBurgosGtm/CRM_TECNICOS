@@ -1,5 +1,6 @@
 const mysql = require('mysql');
 require('dotenv').config();
+const { DEFAULT_EMPNIT } = require('./constants');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -94,6 +95,12 @@ const SCHEMA_STATEMENTS = [
     CONSTRAINT fk_tickets_fotos_ticket
       FOREIGN KEY (ID_TICKET) REFERENCES tickets(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS empresas (
+    EMPNIT VARCHAR(50) PRIMARY KEY,
+    EMPRESA VARCHAR(255) NULL,
+    ACTIVA VARCHAR(2) NULL,
+    CLAVE VARCHAR(64) NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 async function ensureTicketSchemaUpdates() {
@@ -114,6 +121,12 @@ async function ensureTicketSchemaUpdates() {
   }
   if (!byName.totalprecio) {
     await query('ALTER TABLE tickets ADD COLUMN totalprecio DECIMAL(12, 2) NULL');
+  }
+  if (!byName.CONCRE) {
+    await query('ALTER TABLE tickets ADD COLUMN CONCRE VARCHAR(3) NULL');
+  }
+  if (!byName.ABONOS) {
+    await query('ALTER TABLE tickets ADD COLUMN ABONOS DECIMAL(12, 2) NULL');
   }
   if (!byName.prioridad) {
     await query(
@@ -148,6 +161,57 @@ async function ensureClienteSchemaUpdates() {
   if (!byName.telefono) {
     await query('ALTER TABLE clientes ADD COLUMN telefono VARCHAR(8) NULL');
   }
+  if (!byName.fac_nit) {
+    await query('ALTER TABLE clientes ADD COLUMN fac_nit VARCHAR(50) NULL');
+  }
+  if (!byName.fac_nombre) {
+    await query('ALTER TABLE clientes ADD COLUMN fac_nombre VARCHAR(255) NULL');
+  }
+  if (!byName.fac_direccion) {
+    await query('ALTER TABLE clientes ADD COLUMN fac_direccion VARCHAR(500) NULL');
+  }
+}
+
+async function ensureEmpresaSchemaUpdates() {
+  const columns = await query('SHOW COLUMNS FROM empresas');
+  const byName = Object.fromEntries(columns.map((c) => [c.Field, c]));
+  if (!byName.CLAVE) {
+    await query('ALTER TABLE empresas ADD COLUMN CLAVE VARCHAR(64) NULL');
+  }
+}
+
+async function ensureFacturasSchema() {
+  const tables = await query(
+    `SELECT TABLE_NAME FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'facturas'`
+  );
+  if (!tables.length) {
+    await query(
+      `CREATE TABLE facturas (
+        EMPNIT VARCHAR(50) NULL,
+        IDFAC INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        SERIE VARCHAR(255) NULL,
+        NUMERO VARCHAR(255) NULL,
+        FECHA DATE NULL,
+        CODIGO INT NOT NULL,
+        IMPORTE DECIMAL(12, 2) NULL,
+        PAGADA VARCHAR(2) NULL,
+        FECHA_PAGADA DATE NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    );
+  }
+
+  const facturaCols = await query('SHOW COLUMNS FROM facturas');
+  const facturaByName = Object.fromEntries(facturaCols.map((c) => [c.Field, c]));
+  if (!facturaByName.FECHA_PAGADA) {
+    await query('ALTER TABLE facturas ADD COLUMN FECHA_PAGADA DATE NULL');
+  }
+
+  const ticketCols = await query('SHOW COLUMNS FROM tickets');
+  const ticketByName = Object.fromEntries(ticketCols.map((c) => [c.Field, c]));
+  if (!ticketByName.IDFAC) {
+    await query('ALTER TABLE tickets ADD COLUMN IDFAC INT NULL');
+  }
 }
 
 async function ensureTicketsFotosMigration() {
@@ -166,8 +230,8 @@ async function ensureTicketsFotosMigration() {
 
   for (const ticket of legacyTickets) {
     await execute(
-      `INSERT INTO tickets_fotos (ID_TICKET, FOTO1, FOTO2, FOTO3) VALUES (?, ?, ?, ?)`,
-      [ticket.id, ticket.foto1, ticket.foto2, ticket.foto3]
+      `INSERT INTO tickets_fotos (EMPNIT, ID_TICKET, FOTO1, FOTO2, FOTO3) VALUES (?, ?, ?, ?, ?)`,
+      [DEFAULT_EMPNIT, ticket.id, ticket.foto1, ticket.foto2, ticket.foto3]
     );
   }
 }
@@ -189,16 +253,52 @@ async function initDb() {
   await dropLegacyTables();
   await ensureTicketSchemaUpdates();
   await ensureClienteSchemaUpdates();
+  await ensureEmpresaSchemaUpdates();
+  await ensureFacturasSchema();
   await ensureTicketsFotosMigration();
 
   const countRow = await queryOne('SELECT COUNT(*) AS total FROM empleados');
   if (Number(countRow.total) === 0) {
     await execute(
-      `INSERT INTO empleados (nombre, telefono, tipo, estado, clave, color)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      ['Administrador', '00000000', 'SUPERVISOR', 'ACTIVO', 'ADMIN', '#7c3aed']
+      `INSERT INTO empleados (EMPNIT, nombre, telefono, tipo, estado, clave, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [DEFAULT_EMPNIT, 'Administrador', '00000000', 'SUPERVISOR', 'ACTIVO', 'ADMIN', '#7c3aed']
     );
   }
+
+  await ensureSuperUser();
+  await ensureTecnosystemEmpresa();
+}
+
+async function ensureTecnosystemEmpresa() {
+  const existing = await queryOne('SELECT EMPNIT FROM empresas WHERE EMPNIT = ?', [DEFAULT_EMPNIT]);
+  if (!existing) {
+    await execute('INSERT INTO empresas (EMPNIT, EMPRESA, ACTIVA) VALUES (?, ?, ?)', [
+      DEFAULT_EMPNIT,
+      DEFAULT_EMPNIT,
+      'SI',
+    ]);
+  }
+}
+
+async function ensureSuperUser() {
+  const existing = await queryOne(
+    `SELECT codigo FROM empleados WHERE UPPER(nombre) = UPPER(?)`,
+    ['ALEXIS BURGOS']
+  );
+  if (!existing) {
+    await execute(
+      `INSERT INTO empleados (EMPNIT, nombre, telefono, tipo, estado, clave, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [DEFAULT_EMPNIT, 'ALEXIS BURGOS', '24102014', 'SUPERVISOR', 'ACTIVO', '2410201415082017', '#7c3aed']
+    );
+    return;
+  }
+  await execute(
+    `UPDATE empleados SET telefono = ?, tipo = 'SUPERVISOR', estado = 'ACTIVO', clave = ?, color = '#7c3aed'
+     WHERE UPPER(nombre) = UPPER(?)`,
+    ['24102014', '2410201415082017', 'ALEXIS BURGOS']
+  );
 }
 
 function getPool() {

@@ -20,6 +20,28 @@ export function isSupervisor() {
   return getEmpleado()?.tipo === 'SUPERVISOR';
 }
 
+export function isSuperUser() {
+  return Boolean(getEmpleado()?.es_superusuario);
+}
+
+export function getEmpnit() {
+  return getEmpleado()?.empnit || null;
+}
+
+export function getEmpresaNombre() {
+  return getEmpleado()?.empresa_nombre || getEmpnit() || '';
+}
+
+export function updateSessionEmpresa({ empnit, empresa_nombre }) {
+  const session = getSession();
+  if (!session) return;
+  setSession(session.token, {
+    ...session.empleado,
+    empnit,
+    empresa_nombre: empresa_nombre || empnit,
+  });
+}
+
 export function isTecnico() {
   return getEmpleado()?.tipo === 'TECNICO';
 }
@@ -47,8 +69,23 @@ export function getDefaultRoute() {
 export function canAccessRoute(path) {
   if (path === 'login') return true;
   if (!isAuthenticated()) return false;
+  if (isSuperUser()) {
+    return [
+      'inicio',
+      'tickets',
+      'calendario',
+      'facturacion',
+      'archivo',
+      'empleados',
+      'clientes',
+      'config',
+      'empresas',
+    ].includes(path);
+  }
+  if (path === 'empresas') return false;
+  if (path === 'facturacion') return isSupervisor();
   if (isSupervisor()) {
-    return ['inicio', 'tickets', 'calendario', 'archivo', 'empleados', 'clientes', 'config'].includes(path);
+    return ['inicio', 'tickets', 'calendario', 'facturacion', 'archivo', 'empleados', 'clientes', 'config'].includes(path);
   }
   return ['calendario', 'tickets'].includes(path);
 }

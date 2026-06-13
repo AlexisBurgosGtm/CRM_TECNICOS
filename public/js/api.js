@@ -86,6 +86,12 @@ export function logout() {
 
 
 
+export function setSessionEmpresa(empnit) {
+  return post('/auth/set-empresa', { empnit });
+}
+
+
+
 export function listEmpleados(soloActivos = false) {
 
   return post('/empleados/list', { soloActivos });
@@ -118,9 +124,9 @@ export function updateEmpleado(body) {
 
 
 
-export function deleteEmpleado(codigo) {
+export function deleteEmpleado(codigo, clave) {
 
-  return post('/empleados/delete', { codigo });
+  return post('/empleados/delete', { codigo, clave });
 
 }
 
@@ -150,10 +156,32 @@ export function updateCliente(body) {
 
 
 
-export function deleteCliente(codigo) {
+export function deleteCliente(codigo, clave) {
 
-  return post('/clientes/delete', { codigo });
+  return post('/clientes/delete', { codigo, clave });
 
+}
+
+
+
+export function listEmpresas() {
+  return post('/empresas/list');
+}
+
+export function getEmpresa(empnit) {
+  return post('/empresas/get', { empnit });
+}
+
+export function createEmpresa(body) {
+  return post('/empresas/create', body);
+}
+
+export function updateEmpresa(body) {
+  return post('/empresas/update', body);
+}
+
+export function deleteEmpresa(empnit, clave) {
+  return post('/empresas/delete', { empnit, clave });
 }
 
 
@@ -180,6 +208,10 @@ export function assignTicketEmpleado(id, codigo_empleado) {
 
 export function listTicketsArchivo(start, end) {
   return post('/tickets/archivo', { start, end });
+}
+
+export function listFacturasArchivo(start, end) {
+  return post('/facturas/archivo', { start, end });
 }
 
 export function listTickets() {
@@ -226,14 +258,50 @@ export function uploadTicketFoto(id, slot, foto) {
 
 
 
-export function deleteTicket(id) {
+export function deleteTicket(id, clave) {
 
-  return post('/tickets/delete', { id });
+  return post('/tickets/delete', { id, clave });
 
 }
 
-export function deleteTicketPhotosInRange(start, end) {
-  return post('/tickets/delete-fotos', { start, end });
+export function deleteTicketPhotosInRange(start, end, clave) {
+  return post('/tickets/delete-fotos', { start, end, clave });
+}
+
+export function getEmpresaClaveStatus() {
+  return post('/empresa-clave/status');
+}
+
+export function updateEmpresaClave(clave) {
+  return post('/empresa-clave/update', { clave });
+}
+
+export function getDatabaseSize() {
+  return post('/config/database-size');
+}
+
+export function listFacturacionPendientes() {
+  return post('/facturacion/tickets-pendientes');
+}
+
+export function listFacturas(year, month) {
+  return post('/facturacion/facturas', { year, month });
+}
+
+export function emitirFactura(ticketId) {
+  return post('/facturacion/emitir', { ticket_id: ticketId });
+}
+
+export function getFactura(idfac) {
+  return post('/facturacion/factura/get', { idfac });
+}
+
+export function updateFactura(idfac, serie, numero) {
+  return post('/facturacion/factura/update', { idfac, serie, numero });
+}
+
+export function marcarFacturaPagada(idfac, fechaPagada) {
+  return post('/facturacion/factura/marcar-pagada', { idfac, fecha_pagada: fechaPagada });
 }
 
 

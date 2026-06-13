@@ -1,7 +1,9 @@
 import * as api from '../api.js';
-import { updateAppShell, bindLogout } from '../components/layout.js';
-import { toastSuccess, toastError, confirmAction } from '../alerts.js';
+import { updateAppShell, bindLogout, refreshAppShellEmpresa } from '../components/layout.js';
+import { toastSuccess, toastError, confirmDeleteWithClave } from '../alerts.js';
 import { runFormAction } from '../form-actions.js';
+import { mountFloatingFab } from '../components/fab.js';
+import { isSuperUser, getEmpnit, updateSessionEmpresa } from '../auth.js';
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -30,11 +32,23 @@ export async function renderEmployees(root) {
   updateAppShell('empleados', 'Empleados');
   root.innerHTML = `
     <main class="container-fluid py-2">
-      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
+      <div id="superEmpresaPanel" class="card border-0 shadow-sm mb-2 d-none">
+        <div class="card-body py-2">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label mb-1" for="superEmpresaSelect">Empresa activa (contexto de sesión)</label>
+              <select class="form-select form-select-sm" id="superEmpresaSelect"></select>
+              <div class="form-text">Seleccione la empresa cuyos empleados, clientes y tickets desea gestionar.</div>
+            </div>
+            <div class="col-md-4">
+              <div class="small text-muted">EMPNIT actual</div>
+              <div class="fw-semibold" id="superEmpresaActual">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mb-2">
         <h1 class="h6 mb-0">Gestión de empleados</h1>
-        <button type="button" class="btn btn-primary btn-sm" id="btnNuevoEmpleado">
-          <i class="fa-solid fa-plus me-1"></i>Nuevo empleado
-        </button>
       </div>
       <div class="table-responsive">
         <table class="table table-sm table-striped table-hover small mb-0">
@@ -119,6 +133,48 @@ export async function renderEmployees(root) {
   const colorPicker = document.getElementById('empleadoColor');
   const colorHex = document.getElementById('empleadoColorHex');
 
+  async function initSuperEmpresaSelector() {
+    if (!isSuperUser()) return;
+
+    const panel = document.getElementById('superEmpresaPanel');
+    const select = document.getElementById('superEmpresaSelect');
+    const actual = document.getElementById('superEmpresaActual');
+    panel.classList.remove('d-none');
+
+    try {
+      const empresas = await api.listEmpresas();
+      select.innerHTML = empresas
+        .map(
+          (e) =>
+            `<option value="${escapeHtml(e.empnit)}">${escapeHtml(e.empresa || e.empnit)} (${escapeHtml(e.empnit)})</option>`
+        )
+        .join('');
+
+      const current = getEmpnit();
+      if (current) select.value = current;
+      actual.textContent = current || '—';
+
+      select.addEventListener('change', async () => {
+        const empnit = select.value;
+        try {
+          const result = await api.setSessionEmpresa(empnit);
+          updateSessionEmpresa(result);
+          actual.textContent = result.empnit;
+          refreshAppShellEmpresa();
+          toastSuccess(`Empresa activa: ${result.empresa_nombre || result.empnit}`);
+          await load();
+        } catch (err) {
+          toastError(err.message);
+          select.value = getEmpnit() || '';
+        }
+      });
+    } catch (err) {
+      toastError(err.message);
+    }
+  }
+
+  await initSuperEmpresaSelector();
+
   colorPicker.addEventListener('input', () => {
     colorHex.value = colorPicker.value;
   });
@@ -177,8 +233,12 @@ export async function renderEmployees(root) {
           <td>${estadoBadge(e.estado)}</td>
           <td class="text-end">
             <div class="d-grid gap-1 d-md-block">
-              <button class="btn btn-outline-primary btn-sm btn-edit" data-codigo="${e.codigo}">Editar</button>
-              <button class="btn btn-outline-danger btn-sm btn-delete" data-codigo="${e.codigo}">Eliminar</button>
+              <button class="btn btn-outline-primary btn-sm btn-edit" data-codigo="${e.codigo}">
+                <i class="fa-solid fa-pen me-1"></i>Editar
+              </button>
+              <button class="btn btn-outline-danger btn-sm btn-delete" data-codigo="${e.codigo}">
+                <i class="fa-solid fa-trash me-1"></i>Eliminar
+              </button>
             </div>
           </td>
         </tr>`
@@ -194,10 +254,10 @@ export async function renderEmployees(root) {
       document.querySelectorAll('.btn-delete').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const codigo = Number(btn.dataset.codigo);
-          const ok = await confirmAction('Eliminar empleado', '¿Confirma la eliminación?');
-          if (!ok) return;
+          const clave = await confirmDeleteWithClave('Eliminar empleado', '¿Confirma la eliminación?');
+          if (!clave) return;
           try {
-            await api.deleteEmpleado(codigo);
+            await api.deleteEmpleado(codigo, clave);
             toastSuccess('Empleado eliminado');
             await load();
           } catch (err) {
@@ -212,7 +272,8 @@ export async function renderEmployees(root) {
     }
   }
 
-  document.getElementById('btnNuevoEmpleado').addEventListener('click', () => openModal());
+  const fabBtn = mountFloatingFab({ id: 'btnFabNuevoEmpleado', ariaLabel: 'Nuevo empleado' });
+  fabBtn.addEventListener('click', () => openModal());
 
   document.getElementById('empleadoForm').addEventListener('submit', async (e) => {
     e.preventDefault();

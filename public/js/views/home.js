@@ -9,6 +9,7 @@ import {
   bindTicketDetailImageDownload,
 } from '../components/ticket-detail.js';
 import { renderImporteLineChart, destroyImporteChart } from '../components/dashboard-chart.js';
+import { mountFloatingFab } from '../components/fab.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -75,21 +76,18 @@ function sortTicketsNewestFirst(tickets) {
 }
 
 function mountHomeSearchFab() {
-  document.getElementById('btnFabBuscarTicket')?.remove();
-  const fab = document.createElement('button');
-  fab.type = 'button';
-  fab.id = 'btnFabBuscarTicket';
-  fab.className = 'btn btn-primary fab-add-floating fab-floating-left';
-  fab.setAttribute('aria-label', 'Buscar ticket por número');
-  fab.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
-  document.body.appendChild(fab);
-  return fab;
+  return mountFloatingFab({
+    id: 'btnFabBuscarTicket',
+    ariaLabel: 'Buscar ticket por número',
+    icon: 'fa-magnifying-glass',
+    extraClass: 'fab-floating-left',
+  });
 }
 
 export async function renderHome(root) {
   updateAppShell('inicio', 'Inicio');
   const { start, end } = monthRange();
-  let dashboardData = { tickets: [], empleados: [] };
+  let dashboardData = { tickets: [], empleados: [], facturas_pagadas: [] };
   let searchQuery = '';
 
   root.innerHTML = `
@@ -154,11 +152,21 @@ export async function renderHome(root) {
         <div class="col-lg-6">
           <div class="card border-0 shadow-sm mb-3 dashboard-chart-card">
             <div class="card-header card-header-app py-2">
-              <h2 class="h6 mb-0"><i class="fa-solid fa-chart-line me-2"></i>Importe por fecha</h2>
+              <h2 class="h6 mb-0"><i class="fa-solid fa-chart-line me-2"></i>Importe de tickets</h2>
             </div>
             <div class="card-body py-2">
               <div class="dashboard-importe-chart-wrap">
-                <canvas id="importePorFechaChart" aria-label="Gráfica de importe por fecha"></canvas>
+                <canvas id="importeTicketsChart" aria-label="Gráfica de importe de tickets"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card border-0 shadow-sm mb-3 dashboard-chart-card">
+            <div class="card-header card-header-app py-2">
+              <h2 class="h6 mb-0"><i class="fa-solid fa-chart-line me-2"></i>Importe de facturas pagadas</h2>
+            </div>
+            <div class="card-body py-2">
+              <div class="dashboard-importe-chart-wrap">
+                <canvas id="importeFacturasChart" aria-label="Gráfica de importe de facturas pagadas"></canvas>
               </div>
             </div>
           </div>
@@ -264,19 +272,49 @@ export async function renderHome(root) {
     document.getElementById('ticketsTotalPrecio').textContent = formatImporte(total);
   }
 
-  async function updateImporteChart(tickets) {
+  async function updateTicketsChart(tickets) {
     const desde = document.getElementById('filtroDesde').value;
     const hasta = document.getElementById('filtroHasta').value;
-    const canvas = document.getElementById('importePorFechaChart');
+    const canvas = document.getElementById('importeTicketsChart');
     if (!desde || !hasta || desde > hasta) {
-      destroyImporteChart();
+      destroyImporteChart(canvas);
       return;
     }
     try {
       await renderImporteLineChart(canvas, tickets, desde, hasta);
     } catch (err) {
-      destroyImporteChart();
-      console.warn('No se pudo renderizar la gráfica:', err);
+      destroyImporteChart(canvas);
+      console.warn('No se pudo renderizar la gráfica de tickets:', err);
+    }
+  }
+
+  async function updateFacturasChart() {
+    const desde = document.getElementById('filtroDesde').value;
+    const hasta = document.getElementById('filtroHasta').value;
+    const canvas = document.getElementById('importeFacturasChart');
+    if (!desde || !hasta || desde > hasta) {
+      destroyImporteChart(canvas);
+      return;
+    }
+    try {
+      await renderImporteLineChart(
+        canvas,
+        dashboardData.facturas_pagadas || [],
+        desde,
+        hasta,
+        {
+          dateKey: 'fecha',
+          amountKey: 'total',
+          colors: {
+            border: '#16a34a',
+            fill: 'rgba(22, 163, 74, 0.12)',
+            point: '#15803d',
+          },
+        }
+      );
+    } catch (err) {
+      destroyImporteChart(canvas);
+      console.warn('No se pudo renderizar la gráfica de facturas:', err);
     }
   }
 
@@ -293,7 +331,7 @@ export async function renderHome(root) {
 
   function renderTicketsTable(tickets) {
     updateTotalPrecio(tickets);
-    updateImporteChart(tickets);
+    updateTicketsChart(tickets);
 
     if (!tickets.length) {
       ticketsListBody.innerHTML =
@@ -376,6 +414,7 @@ export async function renderHome(root) {
       const { start, end } = rangeToIso(desde, hasta);
       dashboardData = await api.getDashboardResumen(start, end);
       applyTicketsView();
+      await updateFacturasChart();
 
       if (!dashboardData.empleados.length) {
         empleadosResumenList.innerHTML =
@@ -431,7 +470,9 @@ export async function renderHome(root) {
   document.getElementById('filtroDesde').addEventListener('change', onFiltroFechaChange);
   document.getElementById('filtroHasta').addEventListener('change', onFiltroFechaChange);
 
-  document.getElementById('filtroEstatus').addEventListener('change', applyTicketsView);
+  document.getElementById('filtroEstatus').addEventListener('change', () => {
+    applyTicketsView();
+  });
 
   document.getElementById('homeTicketSearch').addEventListener('input', (e) => {
     searchQuery = e.target.value.trim();

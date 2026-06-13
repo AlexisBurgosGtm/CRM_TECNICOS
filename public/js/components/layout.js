@@ -1,16 +1,19 @@
 import * as api from '../api.js';
-import { clearSession, isSupervisor } from '../auth.js';
+import { clearSession, isSupervisor, isSuperUser, getEmpresaNombre } from '../auth.js';
 import { navigate } from '../router.js';
 import { confirmAction, toastSuccess } from '../alerts.js';
+import { renderThemeSelector, bindThemeSelector, applyTheme, getStoredTheme } from '../themes.js';
 
 const ALL_PAGES = [
   { id: 'inicio', label: 'Inicio', path: 'inicio', icon: 'fa-house', supervisorOnly: true },
   { id: 'tickets', label: 'Tickets', path: 'tickets', icon: 'fa-ticket', supervisorOnly: false },
   { id: 'calendario', label: 'Eventos', path: 'calendario', icon: 'fa-calendar-days', supervisorOnly: false },
+  { id: 'facturacion', label: 'Facturacion', path: 'facturacion', icon: 'fa-file-invoice-dollar', supervisorOnly: true },
   { id: 'archivo', label: 'Archivo', path: 'archivo', icon: 'fa-box-archive', supervisorOnly: true },
   { id: 'empleados', label: 'Empleados', path: 'empleados', icon: 'fa-user-group', supervisorOnly: true },
   { id: 'clientes', label: 'Clientes', path: 'clientes', icon: 'fa-building', supervisorOnly: true },
   { id: 'config', label: 'Config', path: 'config', icon: 'fa-gear', supervisorOnly: true },
+  { id: 'empresas', label: 'Empresas', path: 'empresas', icon: 'fa-briefcase', superUserOnly: true },
 ];
 
 let shellMounted = false;
@@ -38,7 +41,10 @@ export async function bindLogout() {
 }
 
 function buildNavLinks(activePage) {
-  const pages = isSupervisor() ? ALL_PAGES : ALL_PAGES.filter((p) => !p.supervisorOnly);
+  let pages = isSupervisor() || isSuperUser() ? ALL_PAGES : ALL_PAGES.filter((p) => !p.supervisorOnly);
+  if (!isSuperUser()) {
+    pages = pages.filter((p) => !p.superUserOnly);
+  }
   return pages
     .map(
       (p) => `
@@ -62,9 +68,14 @@ function mountAppShell() {
           type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-label="Abrir menú">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <span class="navbar-brand mb-0 h6 ms-2" id="appShellTitle"></span>
+        <div class="app-shell-title-wrap navbar-brand mb-0 h6 ms-2">
+          <span id="appShellTitle"></span>
+          <span class="app-shell-title-sep d-none" id="appShellTitleSep" aria-hidden="true">·</span>
+          <span class="app-shell-empresa d-none" id="appShellEmpresa"></span>
+        </div>
         <div class="ms-auto d-flex align-items-center gap-2">
           <span id="appShellExtra"></span>
+          ${renderThemeSelector()}
           ${renderLogoutButton()}
         </div>
       </div>
@@ -87,6 +98,9 @@ function mountAppShell() {
   document.getElementById('sidebarNav').addEventListener('click', (e) => {
     if (e.target.closest('.nav-link')) closeSidebar();
   });
+
+  bindThemeSelector();
+  applyTheme(getStoredTheme());
 
   shellMounted = true;
 }
@@ -122,10 +136,30 @@ export function hideAppShell() {
   document.getElementById('appShell')?.classList.add('d-none');
 }
 
+export function refreshAppShellEmpresa() {
+  const empresaEl = document.getElementById('appShellEmpresa');
+  const sepEl = document.getElementById('appShellTitleSep');
+  if (!empresaEl) return;
+
+  const nombre = getEmpresaNombre();
+  if (nombre) {
+    empresaEl.textContent = nombre;
+    empresaEl.title = `Empresa: ${nombre}`;
+    empresaEl.classList.remove('d-none');
+    sepEl?.classList.remove('d-none');
+  } else {
+    empresaEl.textContent = '';
+    empresaEl.classList.add('d-none');
+    sepEl?.classList.add('d-none');
+  }
+}
+
 export function updateAppShell(activePage, pageTitle, extraHeaderHtml = '') {
   mountAppShell();
   showAppShell();
+  bindThemeSelector();
   document.getElementById('appShellTitle').textContent = pageTitle;
+  refreshAppShellEmpresa();
   document.getElementById('appShellExtra').innerHTML = extraHeaderHtml;
   document.getElementById('sidebarNav').innerHTML = buildNavLinks(activePage);
 }

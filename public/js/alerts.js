@@ -81,6 +81,58 @@ export function showError(message) {
   });
 }
 
+export async function confirmDeleteWithClave(title, text) {
+  const result = await Swal.fire({
+    ...confirmDialogDefaults,
+    title,
+    text,
+    icon: 'warning',
+    input: 'text',
+    inputLabel: 'Clave de eliminación',
+    inputPlaceholder: 'Ingrese la clave de la empresa',
+    inputAttributes: {
+      autocomplete: 'off',
+      autocapitalize: 'off',
+      autocorrect: 'off',
+      spellcheck: 'false',
+      maxlength: 64,
+      class: 'swal2-input config-clave-mask',
+      name: 'empresa-delete-clave',
+      'data-lpignore': 'true',
+      'data-1p-ignore': 'true',
+      'data-form-type': 'other',
+    },
+    confirmButtonText: 'Eliminar',
+    cancelButtonText: 'Cancelar',
+    inputValidator: (value) => {
+      if (!String(value || '').trim()) return 'Ingrese la clave de eliminación.';
+      return null;
+    },
+  });
+  if (!result.isConfirmed) return null;
+  return String(result.value).trim();
+}
+
+export async function confirmMarcarPagadaFactura() {
+  const today = new Date().toISOString().slice(0, 10);
+  const result = await Swal.fire({
+    ...confirmDialogDefaults,
+    title: 'Registrar pago',
+    text: 'Indique la fecha de pago de la factura',
+    icon: 'question',
+    input: 'date',
+    inputValue: today,
+    confirmButtonText: 'Marcar como pagada',
+    cancelButtonText: 'Cancelar',
+    inputValidator: (value) => {
+      if (!value) return 'Indique la fecha de pago.';
+      return null;
+    },
+  });
+  if (!result.isConfirmed) return null;
+  return result.value;
+}
+
 export async function promptTicketNumber() {
   const result = await Swal.fire({
     ...confirmDialogDefaults,

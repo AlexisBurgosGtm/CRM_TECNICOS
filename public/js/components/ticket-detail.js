@@ -8,9 +8,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function photoUrl(filename) {
-  if (!filename) return null;
-  return `/FOTOS/${encodeURIComponent(filename)}`;
+function photoUrl(value) {
+  if (!value) return null;
+  if (value.startsWith('data:')) return value;
+  return `/FOTOS/${encodeURIComponent(value)}`;
+}
+
+function photoCaption(value) {
+  if (!value || value.startsWith('data:')) return '';
+  return value;
 }
 
 function prioridadBadgeClass(prioridad) {
@@ -39,18 +45,19 @@ export function statusBadge(status) {
   return '<span class="badge badge-estatus-pendiente">Pendiente</span>';
 }
 
-export function renderPhotoBlock(label, filename) {
-  const url = photoUrl(filename);
+export function renderPhotoBlock(label, value) {
+  const url = photoUrl(value);
   if (!url) {
     return `<div class="mb-2"><span class="text-muted">${escapeHtml(label)}: —</span></div>`;
   }
+  const caption = photoCaption(value);
   return `
     <div class="mb-3">
       <div class="fw-semibold mb-1">${escapeHtml(label)}</div>
       <img src="${url}" alt="${escapeHtml(label)}" data-full-src="${url}"
         class="ticket-archivo-photo ticket-photo-zoomable img-fluid rounded border"
         role="button" title="Clic para ampliar">
-      <div class="small text-muted mt-1">${escapeHtml(filename)}</div>
+      ${caption ? `<div class="small text-muted mt-1">${escapeHtml(caption)}</div>` : ''}
     </div>`;
 }
 

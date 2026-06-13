@@ -1,6 +1,6 @@
 import { formatDate, formatImporte } from '../format.js';
 
-let chartInstance = null;
+const chartInstances = new Map();
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -10,7 +10,7 @@ function toDateInput(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function buildDailyTotals(tickets, desde, hasta) {
+function buildDailyTotals(items, desde, hasta, dateKey, amountKey) {
   const labels = [];
   const values = [];
   const totals = new Map();
@@ -24,10 +24,10 @@ function buildDailyTotals(tickets, desde, hasta) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  for (const ticket of tickets) {
-    const day = ticket.fecha_inicio;
+  for (const item of items) {
+    const day = item[dateKey];
     if (!day || !totals.has(day)) continue;
-    totals.set(day, totals.get(day) + (ticket.totalprecio != null ? Number(ticket.totalprecio) : 0));
+    totals.set(day, totals.get(day) + (item[amountKey] != null ? Number(item[amountKey]) : 0));
   }
 
   for (const [isoDate, total] of totals) {
@@ -38,22 +38,37 @@ function buildDailyTotals(tickets, desde, hasta) {
   return { labels, values };
 }
 
-export function destroyImporteChart() {
-  if (chartInstance) {
-    chartInstance.destroy();
-    chartInstance = null;
+export function destroyImporteChart(canvas) {
+  if (canvas?.id) {
+    const instance = chartInstances.get(canvas.id);
+    if (instance) {
+      instance.destroy();
+      chartInstances.delete(canvas.id);
+    }
+    return;
   }
+
+  chartInstances.forEach((instance) => instance.destroy());
+  chartInstances.clear();
 }
 
-export async function renderImporteLineChart(canvas, tickets, desde, hasta) {
+export async function renderImporteLineChart(canvas, items, desde, hasta, options = {}) {
   if (!canvas) return;
 
-  destroyImporteChart();
+  const dateKey = options.dateKey || 'fecha_inicio';
+  const amountKey = options.amountKey || 'totalprecio';
+  const colors = options.colors || {
+    border: '#7c3aed',
+    fill: 'rgba(124, 58, 237, 0.12)',
+    point: '#5b21b6',
+  };
 
-  const { labels, values } = buildDailyTotals(tickets, desde, hasta);
+  destroyImporteChart(canvas);
+
+  const { labels, values } = buildDailyTotals(items, desde, hasta, dateKey, amountKey);
   const Chart = (await import('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/auto/+esm')).default;
 
-  chartInstance = new Chart(canvas, {
+  const instance = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
@@ -61,9 +76,9 @@ export async function renderImporteLineChart(canvas, tickets, desde, hasta) {
         {
           label: 'Importe',
           data: values,
-          borderColor: '#7c3aed',
-          backgroundColor: 'rgba(124, 58, 237, 0.12)',
-          pointBackgroundColor: '#5b21b6',
+          borderColor: colors.border,
+          backgroundColor: colors.fill,
+          pointBackgroundColor: colors.point,
           pointBorderColor: '#fff',
           pointRadius: 3,
           pointHoverRadius: 5,
@@ -115,4 +130,6 @@ export async function renderImporteLineChart(canvas, tickets, desde, hasta) {
       },
     },
   });
+
+  chartInstances.set(canvas.id, instance);
 }

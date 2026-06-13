@@ -1,5 +1,6 @@
 import { initRouter } from './router.js';
 import { clearSession } from './auth.js';
+import { initTheme } from './themes.js';
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -33,6 +34,7 @@ async function registerServiceWorker() {
 }
 
 function boot() {
+  initTheme();
   clearSession();
   window.location.hash = '#/login';
   initRouter();

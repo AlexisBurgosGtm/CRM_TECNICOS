@@ -22,6 +22,50 @@ function getExtension(name, mime) {
   return '.jpg';
 }
 
+function isHexPhoto(value) {
+  if (!value || typeof value !== 'string') return false;
+  if (value.startsWith('data:')) return false;
+  if (value.length < 64) return false;
+  return /^[0-9a-fA-F]+$/.test(value);
+}
+
+function isPhotoFilename(value) {
+  if (!value || typeof value !== 'string') return false;
+  if (value.startsWith('data:') || isHexPhoto(value)) return false;
+  return true;
+}
+
+function photoInputToHex(photoInput) {
+  if (photoInput == null || photoInput === '') return null;
+  if (typeof photoInput === 'string' && isHexPhoto(photoInput)) return photoInput;
+
+  if (typeof photoInput === 'string' && isPhotoFilename(photoInput)) {
+    return photoInput;
+  }
+
+  let dataUrl = photoInput;
+  if (typeof photoInput === 'object' && photoInput !== null) {
+    dataUrl = photoInput.data || photoInput.dataUrl || '';
+  }
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  const base64 = match ? match[2] : dataUrl;
+  if (!base64) return null;
+  return Buffer.from(base64, 'base64').toString('hex');
+}
+
+function normalizePhotoForClient(value, mime = 'image/jpeg') {
+  if (!value) return null;
+  if (typeof value !== 'string') return null;
+  if (value.startsWith('data:')) return value;
+  if (isHexPhoto(value)) {
+    const base64 = Buffer.from(value, 'hex').toString('base64');
+    return `data:${mime};base64,${base64}`;
+  }
+  return value;
+}
+
 function saveTicketPhoto(photoInput, ticketId, slot) {
   if (photoInput == null || photoInput === '') return null;
 
@@ -71,4 +115,8 @@ module.exports = {
   saveTicketPhoto,
   deletePhotoFile,
   getFotosDir,
+  isHexPhoto,
+  isPhotoFilename,
+  photoInputToHex,
+  normalizePhotoForClient,
 };
