@@ -903,6 +903,14 @@ main {
   }
 }
 
+.login-page--static-bg .login-bg {
+  display: none;
+}
+
+.login-page--static-bg .login-card::before {
+  animation: none;
+}
+
 @media (max-width: 575.98px) {
   .login-card-header {
     padding-top: 1.35rem;

@@ -4,9 +4,17 @@ import { navigate } from '../router.js';
 import { showError, toastSuccess } from '../alerts.js';
 import { renderThemeSelector, bindThemeSelector } from '../themes.js';
 
+function isLoginAnimatedDevice() {
+  return window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)').matches;
+}
+
 export async function renderLogin(root) {
+  const loginPageClass = isLoginAnimatedDevice()
+    ? 'login-page min-vh-100'
+    : 'login-page login-page--static-bg min-vh-100';
+
   root.innerHTML = `
-    <div class="login-page min-vh-100">
+    <div class="${loginPageClass}">
       <div class="login-bg" aria-hidden="true">
         <span class="login-bg-gradient"></span>
         <span class="login-bg-orb login-bg-orb-1"></span>
