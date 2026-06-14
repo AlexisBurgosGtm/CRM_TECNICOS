@@ -95,14 +95,36 @@ function mountAppShell() {
   const root = document.getElementById('root');
   document.body.insertBefore(shell, root);
 
+  if (!document.getElementById('btnMenuFloating')) {
+    const menuFab = document.createElement('button');
+    menuFab.type = 'button';
+    menuFab.id = 'btnMenuFloating';
+    menuFab.className = 'btn btn-primary fab-menu-floating d-none';
+    menuFab.setAttribute('aria-label', 'Abrir menú');
+    menuFab.innerHTML = '<i class="fa-solid fa-bars"></i>';
+    document.body.appendChild(menuFab);
+  }
+
   document.getElementById('sidebarNav').addEventListener('click', (e) => {
     if (e.target.closest('.nav-link')) closeSidebar();
   });
+
+  const menuFab = document.getElementById('btnMenuFloating');
+  if (menuFab && !menuFab.dataset.bound) {
+    menuFab.dataset.bound = '1';
+    menuFab.addEventListener('click', openSidebar);
+  }
 
   bindThemeSelector();
   applyTheme(getStoredTheme());
 
   shellMounted = true;
+}
+
+export function openSidebar() {
+  const el = document.getElementById('sidebarMenu');
+  if (!el) return;
+  bootstrap.Offcanvas.getOrCreateInstance(el).show();
 }
 
 export function closeSidebar() {
@@ -129,11 +151,13 @@ export function closeSidebar() {
 
 export function showAppShell() {
   document.getElementById('appShell')?.classList.remove('d-none');
+  document.getElementById('btnMenuFloating')?.classList.remove('d-none');
 }
 
 export function hideAppShell() {
   closeSidebar();
   document.getElementById('appShell')?.classList.add('d-none');
+  document.getElementById('btnMenuFloating')?.classList.add('d-none');
 }
 
 export function refreshAppShellEmpresa() {
