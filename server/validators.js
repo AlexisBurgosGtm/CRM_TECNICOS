@@ -421,6 +421,22 @@ function validateTicket(body, partial = false) {
   const status = body.status !== undefined ? String(body.status).trim().toUpperCase() : undefined;
   const prioridad =
     body.prioridad !== undefined ? String(body.prioridad).trim().toUpperCase() : undefined;
+  const direccion = body.direccion !== undefined ? String(body.direccion).trim() : undefined;
+
+  let latitud = { valid: true, value: null };
+  let longitud = { valid: true, value: null };
+  if (!partial || body.latitud !== undefined) {
+    latitud = parseCoord(body.latitud, 'Latitud', -90, 90);
+    if (!latitud.valid) errors.push(latitud.error);
+  }
+  if (!partial || body.longitud !== undefined) {
+    longitud = parseCoord(body.longitud, 'Longitud', -180, 180);
+    if (!longitud.valid) errors.push(longitud.error);
+  }
+
+  if (direccion !== undefined && direccion.length > 500) {
+    errors.push('La dirección no puede superar 500 caracteres.');
+  }
 
   let fechaInicioParsed;
   let fechaFinParsed;
@@ -468,6 +484,9 @@ function validateTicket(body, partial = false) {
       totalprecio,
       status: status !== undefined ? status : partial ? undefined : 'PENDIENTE',
       prioridad: prioridad !== undefined ? prioridad : partial ? undefined : 'MEDIA',
+      direccion: direccion !== undefined ? direccion || null : undefined,
+      latitud: latitud.value,
+      longitud: longitud.value,
     },
   };
 }

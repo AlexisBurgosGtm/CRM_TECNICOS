@@ -187,8 +187,11 @@ export async function renderFacturacion(root) {
                 <div id="facturaFechaDisplay" class="fw-semibold">—</div>
               </div>
               <div class="col-6">
-                <label class="form-label text-muted small mb-0">Importe</label>
-                <div id="facturaImporteDisplay" class="fw-semibold">—</div>
+                <label class="form-label" for="facturaImporte">Importe</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Q</span>
+                  <input type="number" class="form-control form-control-sm" id="facturaImporte" min="0" step="0.01">
+                </div>
               </div>
             </div>
             <div class="mb-2">
@@ -268,6 +271,7 @@ export async function renderFacturacion(root) {
     facturaModalReadonly = readonly;
     document.getElementById('facturaSerie').readOnly = readonly;
     document.getElementById('facturaNumero').readOnly = readonly;
+    document.getElementById('facturaImporte').readOnly = readonly;
     facturaGuardarBtn.style.display = readonly ? 'none' : '';
     document.getElementById('facturaModalLabel').textContent = readonly
       ? 'Detalle de factura'
@@ -277,7 +281,8 @@ export async function renderFacturacion(root) {
   function fillFacturaModal(f) {
     document.getElementById('facturaIdfac').value = f.idfac;
     document.getElementById('facturaFechaDisplay').textContent = formatDate(f.fecha);
-    document.getElementById('facturaImporteDisplay').textContent = formatImporte(f.total);
+    document.getElementById('facturaImporte').value =
+      f.total != null && f.total !== '' ? Number(f.total) : '';
     document.getElementById('facturaClienteDisplay').textContent = f.cliente || '—';
     document.getElementById('facturaSerie').value = f.serie || '';
     document.getElementById('facturaNumero').value = f.numero || '';
@@ -411,8 +416,9 @@ export async function renderFacturacion(root) {
       const idfac = Number(document.getElementById('facturaIdfac').value);
       const serie = document.getElementById('facturaSerie').value.trim();
       const numero = document.getElementById('facturaNumero').value.trim();
+      const importeVal = document.getElementById('facturaImporte').value.trim();
       try {
-        await api.updateFactura(idfac, serie, numero);
+        await api.updateFactura(idfac, serie, numero, importeVal !== '' ? Number(importeVal) : null);
         toastSuccess('Factura actualizada');
         facturaModal.hide();
         await loadFacturas();

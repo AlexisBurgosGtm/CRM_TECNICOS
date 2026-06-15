@@ -3,15 +3,15 @@ const DEFAULT_CENTER = { lat: 14.6349, lng: -90.5069 };
 let mapInstance = null;
 let markerInstance = null;
 
-function getCoordInputs() {
+function getCoordInputs(latInputId = 'clienteLatitud', lngInputId = 'clienteLongitud') {
   return {
-    lat: document.getElementById('clienteLatitud'),
-    lng: document.getElementById('clienteLongitud'),
+    lat: document.getElementById(latInputId),
+    lng: document.getElementById(lngInputId),
   };
 }
 
-function updateCoordInputs(lat, lng) {
-  const inputs = getCoordInputs();
+function updateCoordInputs(lat, lng, latInputId, lngInputId) {
+  const inputs = getCoordInputs(latInputId, lngInputId);
   if (!inputs.lat || !inputs.lng) return;
   inputs.lat.value = Number(lat).toFixed(6);
   inputs.lng.value = Number(lng).toFixed(6);
@@ -45,7 +45,13 @@ export function destroyClienteMap() {
   }
 }
 
-export async function initClienteMap({ containerId, lat, lng } = {}) {
+export async function initClienteMap({
+  containerId,
+  lat,
+  lng,
+  latInputId = 'clienteLatitud',
+  lngInputId = 'clienteLongitud',
+} = {}) {
   if (typeof L === 'undefined') return;
 
   destroyClienteMap();
@@ -65,13 +71,13 @@ export async function initClienteMap({ containerId, lat, lng } = {}) {
       centerLat = DEFAULT_CENTER.lat;
       centerLng = DEFAULT_CENTER.lng;
     }
-    updateCoordInputs(centerLat, centerLng);
+    updateCoordInputs(centerLat, centerLng, latInputId, lngInputId);
   } else {
     centerLat = Number(centerLat);
     centerLng = Number(centerLng);
   }
 
-  updateCoordInputs(centerLat, centerLng);
+  updateCoordInputs(centerLat, centerLng, latInputId, lngInputId);
 
   mapInstance = L.map(containerId, { scrollWheelZoom: true }).setView([centerLat, centerLng], 15);
 
@@ -85,7 +91,7 @@ export async function initClienteMap({ containerId, lat, lng } = {}) {
 
   markerInstance.on('dragend', () => {
     const { lat: la, lng: lo } = markerInstance.getLatLng();
-    updateCoordInputs(la, lo);
+    updateCoordInputs(la, lo, latInputId, lngInputId);
   });
 
   requestAnimationFrame(() => {

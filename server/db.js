@@ -212,6 +212,15 @@ async function ensureFacturasSchema() {
   if (!ticketByName.IDFAC) {
     await query('ALTER TABLE tickets ADD COLUMN IDFAC INT NULL');
   }
+  if (!ticketByName.DIRECCION) {
+    await query('ALTER TABLE tickets ADD COLUMN DIRECCION VARCHAR(500) NULL');
+  }
+  if (!ticketByName.LATITUD) {
+    await query('ALTER TABLE tickets ADD COLUMN LATITUD DOUBLE NULL');
+  }
+  if (!ticketByName.LONGITUD) {
+    await query('ALTER TABLE tickets ADD COLUMN LONGITUD DOUBLE NULL');
+  }
 }
 
 async function ensureTicketsFotosMigration() {

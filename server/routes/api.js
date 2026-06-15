@@ -644,6 +644,7 @@ router.post(
 const TICKET_LIST_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
          t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.totalprecio, t.status, t.prioridad,
+         t.DIRECCION, t.LATITUD, t.LONGITUD,
          emp.nombre AS empleado_nombre,
          c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
          c.telefono AS cliente_telefono, c.latitud AS cliente_latitud, c.longitud AS cliente_longitud
@@ -667,6 +668,7 @@ const TICKET_SELECT = `
   SELECT t.id, t.fecha_inicio, t.fecha_fin, t.codigo_empleado, t.codigo_cliente,
          t.reporte_cliente, t.reporte_tecnico, t.accesos, t.notas, t.insumos, t.totalprecio,
          t.status, t.prioridad, t.CONCRE, t.ABONOS, t.foto1, t.foto2, t.foto3,
+         t.DIRECCION, t.LATITUD, t.LONGITUD,
          emp.nombre AS empleado_nombre,
          c.nombre_empresa AS cliente_empresa, c.nombre_cliente AS cliente_nombre,
          c.telefono AS cliente_telefono, c.direccion AS cliente_direccion,
@@ -700,6 +702,9 @@ async function mapTicketRow(row, includePhotos = false) {
     cliente_direccion: row.cliente_direccion,
     cliente_latitud: row.cliente_latitud != null ? Number(row.cliente_latitud) : null,
     cliente_longitud: row.cliente_longitud != null ? Number(row.cliente_longitud) : null,
+    direccion: row.DIRECCION || null,
+    latitud: row.LATITUD != null ? Number(row.LATITUD) : null,
+    longitud: row.LONGITUD != null ? Number(row.LONGITUD) : null,
   };
   if (includePhotos) {
     const photos = await loadTicketPhotos(row.id, row);
@@ -787,8 +792,9 @@ router.post(
 
     const info = await execute(
       `INSERT INTO tickets (EMPNIT, fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente,
-       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reporte_cliente, reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad,
+       DIRECCION, LATITUD, LONGITUD)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         empnit,
         result.data.fecha_inicio,
@@ -803,6 +809,9 @@ router.post(
         result.data.totalprecio ?? null,
         result.data.status,
         result.data.prioridad,
+        result.data.direccion ?? null,
+        result.data.latitud ?? null,
+        result.data.longitud ?? null,
       ]
     );
 
@@ -827,7 +836,8 @@ router.post(
 
     const current = await queryOne(
       `SELECT fecha_inicio, fecha_fin, codigo_empleado, codigo_cliente, reporte_cliente,
-              reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad
+              reporte_tecnico, accesos, notas, insumos, totalprecio, status, prioridad,
+              DIRECCION, LATITUD, LONGITUD
        FROM tickets WHERE id = ? AND ${empnitSql()}`,
       [id, empnit]
     );
@@ -860,6 +870,9 @@ router.post(
         req.body.totalprecio !== undefined ? req.body.totalprecio : current.totalprecio,
       status: req.body.status !== undefined ? req.body.status : current.status,
       prioridad: req.body.prioridad !== undefined ? req.body.prioridad : current.prioridad,
+      direccion: req.body.direccion !== undefined ? req.body.direccion : current.DIRECCION,
+      latitud: req.body.latitud !== undefined ? req.body.latitud : current.LATITUD,
+      longitud: req.body.longitud !== undefined ? req.body.longitud : current.LONGITUD,
     };
 
     const result = validateTicket(merged);
@@ -875,7 +888,7 @@ router.post(
     await execute(
       `UPDATE tickets SET fecha_inicio = ?, fecha_fin = ?, codigo_empleado = ?, codigo_cliente = ?,
        reporte_cliente = ?, reporte_tecnico = ?, accesos = ?, notas = ?, insumos = ?,
-       totalprecio = ?, status = ?, prioridad = ?
+       totalprecio = ?, status = ?, prioridad = ?, DIRECCION = ?, LATITUD = ?, LONGITUD = ?
        WHERE id = ? AND EMPNIT = ?`,
       [
         result.data.fecha_inicio,
@@ -890,6 +903,9 @@ router.post(
         result.data.totalprecio,
         result.data.status,
         result.data.prioridad,
+        result.data.direccion ?? null,
+        result.data.latitud ?? null,
+        result.data.longitud ?? null,
         id,
         empnit,
       ]
@@ -1275,12 +1291,19 @@ router.post(
       return res.status(400).json({ error: 'Serie o número demasiado largos.' });
     }
 
-    await execute('UPDATE facturas SET SERIE = ?, NUMERO = ? WHERE IDFAC = ? AND EMPNIT = ?', [
-      serie || null,
-      numero || null,
-      idfac,
-      empnit,
-    ]);
+    let importe = null;
+    if (req.body?.importe !== undefined && req.body?.importe !== null && req.body?.importe !== '') {
+      const parsed = Number(req.body.importe);
+      if (Number.isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({ error: 'El importe debe ser un número mayor o igual a cero.' });
+      }
+      importe = parsed;
+    }
+
+    await execute(
+      'UPDATE facturas SET SERIE = ?, NUMERO = ?, IMPORTE = ? WHERE IDFAC = ? AND EMPNIT = ?',
+      [serie || null, numero || null, importe, idfac, empnit]
+    );
 
     const row = await queryOne(
       `${FACTURA_SELECT}

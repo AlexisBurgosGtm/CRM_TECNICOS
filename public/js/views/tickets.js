@@ -10,6 +10,7 @@ import {
 } from '../components/ticket-detail.js';
 import { setBtnLoading, runFormAction, runButtonAction } from '../form-actions.js';
 import { mountFloatingFab } from '../components/fab.js';
+import { initClienteMap, destroyClienteMap } from '../components/cliente-map.js';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -219,7 +220,7 @@ export async function renderTickets(root) {
       </div>
     </main>
     <div class="modal fade" id="ticketModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content small">
           <div class="modal-header modal-header-app py-2">
             <h5 class="modal-title" id="ticketModalLabel">Nuevo ticket</h5>
@@ -240,6 +241,25 @@ export async function renderTickets(root) {
             <div class="mb-2">
               <label class="form-label" for="ticketCliente">Cliente</label>
               <select class="form-select form-select-sm" id="ticketCliente" required></select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="ticketDireccion">Dirección</label>
+              <input type="text" class="form-control form-control-sm" id="ticketDireccion" maxlength="500">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Ubicación en mapa</label>
+              <div id="ticketMap" class="cliente-map-wrap"></div>
+              <p class="small text-muted mb-0 mt-1">Arrastre el pin para ajustar la ubicación del ticket.</p>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label" for="ticketLatitud">Latitud</label>
+                <input type="number" step="any" class="form-control form-control-sm" id="ticketLatitud" readonly>
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="ticketLongitud">Longitud</label>
+                <input type="number" step="any" class="form-control form-control-sm" id="ticketLongitud" readonly>
+              </div>
             </div>
             <div class="mb-2" id="ticketPrioridadGroup">
               <label class="form-label" for="ticketPrioridad">Prioridad</label>
@@ -399,15 +419,15 @@ export async function renderTickets(root) {
   }
 
   function mapsButtonHtml(ticket) {
-    const lat = ticket.cliente_latitud;
-    const lng = ticket.cliente_longitud;
+    const lat = ticket.latitud;
+    const lng = ticket.longitud;
     const hasCoords =
       lat != null &&
       lng != null &&
       Number.isFinite(Number(lat)) &&
       Number.isFinite(Number(lng));
     if (!hasCoords) {
-      return `<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Sin ubicación del cliente">
+      return `<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Sin ubicación del ticket">
                 <i class="fa-solid fa-location-dot"></i>
               </button>`;
     }
@@ -569,10 +589,58 @@ export async function renderTickets(root) {
     const empleadoSelect = document.getElementById('ticketEmpleado');
     const clienteSelect = document.getElementById('ticketCliente');
     const asignarEmpleadoSelect = document.getElementById('asignarTicketEmpleado');
+    const ticketModalEl = document.getElementById('ticketModal');
+    let clientesCatalog = [];
+    let pendingTicketMapCoords = { lat: null, lng: null };
+
+    async function refreshTicketMap() {
+      await initClienteMap({
+        containerId: 'ticketMap',
+        lat: pendingTicketMapCoords.lat,
+        lng: pendingTicketMapCoords.lng,
+        latInputId: 'ticketLatitud',
+        lngInputId: 'ticketLongitud',
+      });
+    }
+
+    function setTicketLocationFields({ direccion, lat, lng }) {
+      document.getElementById('ticketDireccion').value = direccion || '';
+      pendingTicketMapCoords = {
+        lat: lat != null && lat !== '' ? Number(lat) : null,
+        lng: lng != null && lng !== '' ? Number(lng) : null,
+      };
+    }
+
+    function applyClienteToTicketForm(codigo) {
+      const cliente = clientesCatalog.find((c) => String(c.codigo) === String(codigo));
+      if (!cliente) return;
+      setTicketLocationFields({
+        direccion: cliente.direccion,
+        lat: cliente.latitud,
+        lng: cliente.longitud,
+      });
+      if (ticketModalEl.classList.contains('show')) {
+        refreshTicketMap().catch(() => {});
+      }
+    }
+
+    ticketModalEl.addEventListener('shown.bs.modal', () => {
+      refreshTicketMap().catch(() => {});
+    });
+
+    ticketModalEl.addEventListener('hidden.bs.modal', () => {
+      destroyClienteMap();
+    });
+
+    clienteSelect.addEventListener('change', () => {
+      const codigo = clienteSelect.value;
+      if (codigo) applyClienteToTicketForm(codigo);
+    });
 
     async function loadSelects() {
       const [empleados, clientes] = await Promise.all([api.listEmpleados(true), api.listClientes()]);
       empleadosActivos = empleados;
+      clientesCatalog = clientes;
       const empOptions = empleados.map((e) => `<option value="${e.codigo}">${escapeHtml(e.nombre)}</option>`).join('');
       empleadoSelect.innerHTML = '<option value="">Sin asignar</option>' + empOptions;
       asignarEmpleadoSelect.innerHTML =
@@ -597,6 +665,7 @@ export async function renderTickets(root) {
       document.getElementById('ticketPrioridadGroup').classList.remove('d-none');
       document.getElementById('ticketPrioridad').value = 'MEDIA';
       document.getElementById('ticketTotalPrecio').value = '';
+      setTicketLocationFields({ direccion: '', lat: null, lng: null });
       empleadoSelect.innerHTML =
         '<option value="">Sin asignar</option>' +
         empleadosActivos.map((e) => `<option value="${e.codigo}">${escapeHtml(e.nombre)}</option>`).join('');
@@ -610,6 +679,11 @@ export async function renderTickets(root) {
       empleadoSelect.value = ticket.codigo_empleado ? String(ticket.codigo_empleado) : '';
       document.getElementById('ticketCliente').value = String(ticket.codigo_cliente);
       document.getElementById('ticketReporteCliente').value = ticket.reporte_cliente || '';
+      setTicketLocationFields({
+        direccion: ticket.direccion,
+        lat: ticket.latitud,
+        lng: ticket.longitud,
+      });
       document.getElementById('ticketTotalPrecioGroup').classList.add('d-none');
       document.getElementById('ticketPrioridadGroup').classList.add('d-none');
       ticketModal.show();
@@ -683,6 +757,9 @@ export async function renderTickets(root) {
           codigo_empleado: empleadoVal ? Number(empleadoVal) : null,
           codigo_cliente: Number(document.getElementById('ticketCliente').value),
           reporte_cliente: document.getElementById('ticketReporteCliente').value.trim() || null,
+          direccion: document.getElementById('ticketDireccion').value.trim() || null,
+          latitud: document.getElementById('ticketLatitud').value,
+          longitud: document.getElementById('ticketLongitud').value,
         };
         if (!id) {
           body.status = 'PENDIENTE';

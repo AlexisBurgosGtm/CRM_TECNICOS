@@ -70,6 +70,7 @@ export function renderTicketDetailHtml(ticket) {
       <dt class="col-sm-3">Nombre empresa</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_empresa || '—')}</dd>
       <dt class="col-sm-3">Nombre cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_nombre || '—')}</dd>
       <dt class="col-sm-3">Dirección cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_direccion || '—')}</dd>
+      <dt class="col-sm-3">Dirección ticket</dt><dd class="col-sm-9">${escapeHtml(ticket.direccion || '—')}</dd>
       <dt class="col-sm-3">Teléfono cliente</dt><dd class="col-sm-9">${escapeHtml(ticket.cliente_telefono || '—')}</dd>
       <dt class="col-sm-3">Status</dt><dd class="col-sm-9">${statusBadge(ticket.status)}</dd>
       <dt class="col-sm-3">Prioridad</dt><dd class="col-sm-9">${prioridadBadgeHtml(ticket.prioridad)}</dd>

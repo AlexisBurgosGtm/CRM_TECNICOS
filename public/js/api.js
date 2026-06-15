@@ -296,8 +296,8 @@ export function getFactura(idfac) {
   return post('/facturacion/factura/get', { idfac });
 }
 
-export function updateFactura(idfac, serie, numero) {
-  return post('/facturacion/factura/update', { idfac, serie, numero });
+export function updateFactura(idfac, serie, numero, importe) {
+  return post('/facturacion/factura/update', { idfac, serie, numero, importe });
 }
 
 export function marcarFacturaPagada(idfac, fechaPagada) {
