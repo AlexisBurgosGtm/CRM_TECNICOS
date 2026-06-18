@@ -617,82 +617,6 @@ main {
   position: relative;
   overflow: hidden;
   background: var(--login-gradient);
-  isolation: isolate;
-}
-
-.login-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.login-bg-gradient {
-  position: absolute;
-  inset: -40%;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(var(--bs-primary-rgb), 0.35) 0%, transparent 45%),
-    radial-gradient(circle at 80% 70%, rgba(var(--bs-primary-rgb), 0.25) 0%, transparent 40%),
-    conic-gradient(from 180deg at 50% 50%, var(--primary-start), var(--accent-light), var(--primary-end), var(--primary-start));
-  opacity: 0.45;
-  animation: loginGradientSpin 28s linear infinite;
-}
-
-.login-bg-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  animation: loginOrbFloat 16s ease-in-out infinite;
-}
-
-.login-bg-orb-1 {
-  width: min(52vw, 420px);
-  height: min(52vw, 420px);
-  top: -12%;
-  left: -8%;
-  background: var(--primary-start);
-}
-
-.login-bg-orb-2 {
-  width: min(48vw, 380px);
-  height: min(48vw, 380px);
-  top: 18%;
-  right: -10%;
-  background: var(--primary-end);
-  animation-delay: -4s;
-  animation-duration: 20s;
-}
-
-.login-bg-orb-3 {
-  width: min(40vw, 320px);
-  height: min(40vw, 320px);
-  bottom: -8%;
-  left: 20%;
-  background: var(--accent-light);
-  animation-delay: -8s;
-  animation-duration: 22s;
-}
-
-.login-bg-orb-4 {
-  width: min(36vw, 280px);
-  height: min(36vw, 280px);
-  bottom: 12%;
-  right: 18%;
-  background: var(--primary-mid);
-  animation-delay: -12s;
-  animation-duration: 18s;
-}
-
-.login-bg-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
 }
 
 .login-top-bar {
@@ -777,8 +701,6 @@ main {
     rgba(var(--bs-primary-rgb), 0.55),
     rgba(255, 255, 255, 0.75)
   );
-  background-size: 300% 300%;
-  animation: loginBorderGlow 8s ease infinite;
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -882,57 +804,6 @@ main {
 
 .login-submit-btn:active {
   transform: translateY(0);
-}
-
-@keyframes loginGradientSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    transform: rotate(180deg) scale(1.08);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-
-@keyframes loginOrbFloat {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(28px, -36px) scale(1.06);
-  }
-  66% {
-    transform: translate(-22px, 24px) scale(0.94);
-  }
-}
-
-@keyframes loginBorderGlow {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-bg-gradient,
-  .login-bg-orb,
-  .login-card::before {
-    animation: none;
-  }
-}
-
-.login-page--static-bg .login-bg {
-  display: none;
-}
-
-.login-page--static-bg .login-card::before {
-  animation: none;
 }
 
 @media (max-width: 575.98px) {
